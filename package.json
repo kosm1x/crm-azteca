@@ -1,0 +1,17 @@
+{
+  "name": "agentic-crm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agentic CRM for media ad sales — AI agents that do the CRM work for your sales team",
+  "scripts": {
+    "dev": "tsx engine/src/index.ts",
+    "build": "tsc --build",
+    "build:container": "crm/container/build.sh",
+    "start": "node engine/dist/index.js",
+    "typecheck": "tsc --build --noEmit",
+    "test": "vitest run",
+    "bootstrap": "tsx scripts/bootstrap.sh",
+    "register-team": "tsx scripts/register-hierarchy.ts"
+  }
+}

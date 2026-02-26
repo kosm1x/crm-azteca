@@ -14,6 +14,9 @@ import {
 
 let db: Database.Database;
 
+/** CRM hook: expose the database handle so CRM can create its tables in the same DB. */
+export function getDatabase(): Database.Database { return db; }
+
 function createSchema(database: Database.Database): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS chats (

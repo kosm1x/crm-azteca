@@ -1,0 +1,24 @@
+[Unit]
+Description=Agentic CRM - AI agents for media ad sales
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/agentic-crm
+ExecStart=/usr/bin/node engine/dist/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+EnvironmentFile=%h/agentic-crm/.env
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=%h/agentic-crm/store %h/agentic-crm/data %h/agentic-crm/groups
+
+[Install]
+WantedBy=default.target

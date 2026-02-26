@@ -186,6 +186,16 @@ function buildVolumeMounts(
     readonly: false,
   });
 
+  // CRM hook: Mount CRM document store (read-only) for agent document access
+  const crmDocsDir = path.join(GROUPS_DIR, '..', 'store', 'documents', group.folder);
+  if (fs.existsSync(crmDocsDir)) {
+    mounts.push({
+      hostPath: crmDocsDir,
+      containerPath: '/workspace/extra/crm-documents',
+      readonly: true,
+    });
+  }
+
   // Additional mounts validated against external allowlist (tamper-proof from containers)
   if (group.containerConfig?.additionalMounts) {
     const validatedMounts = validateAdditionalMounts(

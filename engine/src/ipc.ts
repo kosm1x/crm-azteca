@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { CronExpressionParser } from 'cron-parser';
+import { processCrmIpc } from '../../crm/src/ipc-handlers.js';
 
 import {
   DATA_DIR,
@@ -381,7 +382,12 @@ export async function processTaskIpc(
       }
       break;
 
-    default:
-      logger.warn({ type: data.type }, 'Unknown IPC task type');
+    default: {
+      // CRM hook: delegate unknown IPC types to CRM handler
+      const handled = await processCrmIpc(data as Record<string, unknown>, sourceGroup, isMain, deps);
+      if (!handled) {
+        logger.warn({ type: data.type }, 'Unknown IPC task type');
+      }
+    }
   }
 }

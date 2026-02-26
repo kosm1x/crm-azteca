@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { bootstrapCrm } from '../../crm/src/bootstrap.js';
 
 import {
   ASSISTANT_NAME,
@@ -448,6 +449,7 @@ function ensureContainerSystemRunning(): void {
 async function main(): Promise<void> {
   ensureContainerSystemRunning();
   initDatabase();
+  bootstrapCrm();  // CRM hook: initialize CRM schema and hooks
   logger.info('Database initialized');
   loadState();
 
