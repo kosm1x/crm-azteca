@@ -13,5 +13,8 @@
     "test": "vitest run",
     "bootstrap": "tsx scripts/bootstrap.sh",
     "register-team": "tsx scripts/register-hierarchy.ts"
+  },
+  "devDependencies": {
+    "better-sqlite3": "^12.6.2"
   }
 }
