@@ -12,6 +12,26 @@ import type { IpcDeps } from '../../engine/src/ipc.js';
 // TODO: Import logger from engine when available
 const log = (msg: string) => console.log(`[crm-ipc] ${msg}`);
 
+// --- Input validation helpers ---
+
+const VALID_INTERACTION_TYPES = new Set(['call', 'meeting', 'email', 'whatsapp', 'event', 'other']);
+const VALID_STAGES = new Set(['prospecting', 'qualification', 'proposal', 'negotiation', 'closed_won', 'closed_lost']);
+const VALID_PRIORITIES = new Set(['low', 'medium', 'high']);
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]+)?$/;
+
+function validateEnum(value: unknown, allowed: Set<string>, fallback: string): string {
+  return typeof value === 'string' && allowed.has(value) ? value : fallback;
+}
+
+function validateDate(value: unknown): string | null {
+  return typeof value === 'string' && ISO_DATE_RE.test(value) ? value : null;
+}
+
+function validateNumber(value: unknown, min: number, max = Infinity): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= min && n <= max ? n : null;
+}
+
 export async function processCrmIpc(
   data: Record<string, unknown>,
   sourceGroup: string,
@@ -22,7 +42,6 @@ export async function processCrmIpc(
 
   switch (data.type) {
     case 'crm_log_interaction': {
-      // TODO: Validate fields, check access, insert into crm_interactions
       const person = getPersonByGroupFolder(sourceGroup);
       if (!person) {
         log(`Unknown person for group ${sourceGroup}`);
@@ -41,12 +60,12 @@ export async function processCrmIpc(
         (data.contact_id as string) || null,
         (data.opportunity_id as string) || null,
         person.id,
-        (data.interaction_type as string) || 'other',
+        validateEnum(data.interaction_type, VALID_INTERACTION_TYPES, 'other'),
         (data.summary as string) || '',
         (data.outcome as string) || null,
-        (data.follow_up_date as string) || null,
+        validateDate(data.follow_up_date),
         (data.follow_up_action as string) || null,
-        (data.logged_at as string) || now,
+        now, // always use server-side timestamp — agents must not backdate records
         now,
       );
 
@@ -55,21 +74,37 @@ export async function processCrmIpc(
     }
 
     case 'crm_update_opportunity': {
-      // TODO: Validate fields, check access, update crm_opportunities
       const person = getPersonByGroupFolder(sourceGroup);
       if (!person) return true;
 
       const oppId = data.opportunity_id as string;
       if (!oppId) return true;
 
-      // TODO: Check that person has access to this opportunity's owner
+      // Fetch opportunity to verify ownership before applying any changes
+      const opp = db.prepare('SELECT owner_id FROM crm_opportunities WHERE id = ?')
+        .get(oppId) as { owner_id: string } | undefined;
+      if (!opp) return true;
+      if (!hasAccessTo(sourceGroup, opp.owner_id)) {
+        log(`Access denied: ${sourceGroup} cannot update opportunity ${oppId}`);
+        return true;
+      }
+
       const updates: string[] = [];
       const values: unknown[] = [];
 
-      if (data.stage) { updates.push('stage = ?'); values.push(data.stage); }
-      if (data.amount) { updates.push('amount = ?'); values.push(data.amount); }
-      if (data.probability) { updates.push('probability = ?'); values.push(data.probability); }
-      if (data.close_date) { updates.push('close_date = ?'); values.push(data.close_date); }
+      // For UPDATE fields: null means "absent or invalid — skip this column"
+      const stage = typeof data.stage === 'string' && VALID_STAGES.has(data.stage) ? data.stage : null;
+      if (stage !== null) { updates.push('stage = ?'); values.push(stage); }
+
+      const amount = validateNumber(data.amount, 0);
+      if (amount !== null) { updates.push('amount = ?'); values.push(amount); }
+
+      const probability = validateNumber(data.probability, 0, 100);
+      if (probability !== null) { updates.push('probability = ?'); values.push(probability); }
+
+      const closeDate = validateDate(data.close_date);
+      if (closeDate !== null) { updates.push('close_date = ?'); values.push(closeDate); }
+
       if (data.notes) { updates.push('notes = ?'); values.push(data.notes); }
 
       if (updates.length > 0) {
@@ -84,7 +119,6 @@ export async function processCrmIpc(
     }
 
     case 'crm_create_task': {
-      // TODO: Create a CRM follow-up task
       const person = getPersonByGroupFolder(sourceGroup);
       if (!person) return true;
 
@@ -101,8 +135,8 @@ export async function processCrmIpc(
         (data.opportunity_id as string) || null,
         (data.title as string) || 'Follow up',
         (data.description as string) || null,
-        (data.due_date as string) || null,
-        (data.priority as string) || 'medium',
+        validateDate(data.due_date),
+        validateEnum(data.priority, VALID_PRIORITIES, 'medium'),
         now,
       );
 
