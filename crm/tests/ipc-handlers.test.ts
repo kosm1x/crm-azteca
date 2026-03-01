@@ -35,7 +35,10 @@ vi.mock('../../engine/src/logger.js', () => ({
 }));
 
 // Import ipc-handlers AFTER the mock is registered
-const { processCrmIpc } = await import('../src/ipc-handlers.js');
+const { processCrmIpc, _resetStatementCache } = await import('../src/ipc-handlers.js');
+
+// hierarchy module also caches statements — import its reset too
+const { _resetStatementCache: _resetHierarchyCache } = await import('../src/hierarchy.js');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -51,6 +54,8 @@ const NOW = new Date().toISOString();
 function setupDb() {
   testDb = new Database(':memory:');
   createCrmSchema(testDb);
+  _resetStatementCache();
+  _resetHierarchyCache();
 
   // Insert two AEs in separate groups
   testDb.prepare(`
@@ -433,5 +438,101 @@ describe('input type safety', () => {
 
     // asString(42) returns undefined, falls back to ''
     expect(row.summary).toBe('');
+  });
+
+  it('handles non-string opportunity_id without crashing', async () => {
+    const result = await processCrmIpc(
+      { type: 'crm_update_opportunity', opportunity_id: 42, stage: 'proposal' },
+      'ae1',
+      false,
+      fakeDeps,
+    );
+
+    expect(result).toBe(true);
+
+    // Opportunity unchanged
+    const row = testDb
+      .prepare('SELECT stage FROM crm_opportunities WHERE id = ?')
+      .get('opp1') as { stage: string };
+    expect(row.stage).toBe('prospecting');
+  });
+
+  it('truncates oversized summary to max length', async () => {
+    const longSummary = 'x'.repeat(20_000);
+    await processCrmIpc(
+      { type: 'crm_log_interaction', interaction_type: 'call', summary: longSummary },
+      'ae1',
+      false,
+      fakeDeps,
+    );
+
+    const row = testDb
+      .prepare('SELECT summary FROM crm_interactions ORDER BY created_at DESC LIMIT 1')
+      .get() as { summary: string };
+
+    expect(row.summary.length).toBe(10_000);
+  });
+});
+
+// ─── crm_update_opportunity — edge cases ──────────────────────────────────────
+
+describe('crm_update_opportunity — edge cases', () => {
+  beforeEach(setupDb);
+
+  it('skips update when no valid fields are provided', async () => {
+    await processCrmIpc(
+      { type: 'crm_update_opportunity', opportunity_id: 'opp1', stage: 'invalid' },
+      'ae1',
+      false,
+      fakeDeps,
+    );
+
+    // No audit log entry for the non-update
+    const log = testDb
+      .prepare("SELECT * FROM crm_activity_log WHERE entity_type = 'opportunity' AND action = 'update'")
+      .get();
+    expect(log).toBeUndefined();
+  });
+
+  it('writes access_denied audit log on blocked update', async () => {
+    await processCrmIpc(
+      { type: 'crm_update_opportunity', opportunity_id: 'opp1', stage: 'proposal' },
+      'ae2',
+      false,
+      fakeDeps,
+    );
+
+    const log = testDb
+      .prepare("SELECT * FROM crm_activity_log WHERE action = 'access_denied'")
+      .get() as any;
+
+    expect(log).toBeDefined();
+    expect(log.entity_type).toBe('opportunity');
+    expect(log.entity_id).toBe('opp1');
+    expect(log.person_id).toBe('ae2');
+  });
+
+  it('allows a director to update a subtree AE\'s opportunity', async () => {
+    // Add director above mgr1
+    testDb.prepare(`
+      INSERT INTO crm_people (id, name, role, group_folder, active, created_at)
+      VALUES ('dir1', 'Dan Director', 'director', 'dir1', 1, ?)
+    `).run(NOW);
+    testDb.prepare(`UPDATE crm_people SET manager_id = 'dir1' WHERE id = 'mgr1'`).run();
+    _resetStatementCache();
+    _resetHierarchyCache();
+
+    await processCrmIpc(
+      { type: 'crm_update_opportunity', opportunity_id: 'opp1', stage: 'closed_won' },
+      'dir1',
+      true,
+      fakeDeps,
+    );
+
+    const row = testDb
+      .prepare('SELECT stage FROM crm_opportunities WHERE id = ?')
+      .get('opp1') as { stage: string };
+
+    expect(row.stage).toBe('closed_won');
   });
 });

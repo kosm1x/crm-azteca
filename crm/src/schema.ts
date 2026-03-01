@@ -51,7 +51,7 @@ export function createCrmSchema(db: Database.Database): void {
       region TEXT,
       owner_id TEXT REFERENCES crm_people(id),
       annual_revenue REAL,
-      status TEXT DEFAULT 'active',
+      status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'prospect', 'churned')),
       notes TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -94,6 +94,7 @@ export function createCrmSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_crm_opps_account ON crm_opportunities(account_id);
     CREATE INDEX IF NOT EXISTS idx_crm_opps_stage ON crm_opportunities(stage);
     CREATE INDEX IF NOT EXISTS idx_crm_opps_owner_stage ON crm_opportunities(owner_id, stage);
+    CREATE INDEX IF NOT EXISTS idx_crm_opps_account_stage ON crm_opportunities(account_id, stage);
 
     -- Logged client interactions
     CREATE TABLE IF NOT EXISTS crm_interactions (
@@ -114,6 +115,7 @@ export function createCrmSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_crm_interactions_account ON crm_interactions(account_id);
     CREATE INDEX IF NOT EXISTS idx_crm_interactions_logged ON crm_interactions(logged_at);
     CREATE INDEX IF NOT EXISTS idx_crm_interactions_person_logged ON crm_interactions(person_id, logged_at);
+    CREATE INDEX IF NOT EXISTS idx_crm_interactions_account_logged ON crm_interactions(account_id, logged_at);
 
     -- Sales quotas
     CREATE TABLE IF NOT EXISTS crm_quotas (
@@ -158,7 +160,7 @@ export function createCrmSchema(db: Database.Database): void {
       id TEXT PRIMARY KEY,
       opportunity_id TEXT NOT NULL REFERENCES crm_opportunities(id),
       version INTEGER DEFAULT 1,
-      status TEXT DEFAULT 'draft',
+      status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'sent', 'accepted', 'rejected', 'expired')),
       total_amount REAL,
       currency TEXT DEFAULT 'MXN',
       sent_at TEXT,
@@ -178,13 +180,14 @@ export function createCrmSchema(db: Database.Database): void {
       description TEXT,
       due_date TEXT,
       priority TEXT DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high')),
-      status TEXT DEFAULT 'pending',
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed', 'cancelled')),
       created_at TEXT NOT NULL,
       completed_at TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_crm_tasks_person ON crm_tasks_crm(person_id);
     CREATE INDEX IF NOT EXISTS idx_crm_tasks_due ON crm_tasks_crm(due_date);
     CREATE INDEX IF NOT EXISTS idx_crm_tasks_person_status ON crm_tasks_crm(person_id, status);
+    CREATE INDEX IF NOT EXISTS idx_crm_tasks_person_status_due ON crm_tasks_crm(person_id, status, due_date);
 
     -- Audit trail
     CREATE TABLE IF NOT EXISTS crm_activity_log (

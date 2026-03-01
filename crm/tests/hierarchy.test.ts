@@ -16,6 +16,7 @@ const {
   getSubtree,
   hasAccessTo,
   getPersonByGroupFolder,
+  _resetStatementCache,
 } = await import('../src/hierarchy.js');
 
 const NOW = '2024-01-01T00:00:00.000Z';
@@ -36,6 +37,7 @@ function setupHierarchy() {
   testDb = new Database(':memory:');
   testDb.pragma('foreign_keys = ON');
   createCrmSchema(testDb);
+  _resetStatementCache();
 
   const insert = testDb.prepare(`
     INSERT INTO crm_people (id, name, role, manager_id, group_folder, active, created_at)
@@ -135,5 +137,25 @@ describe('hasAccessTo', () => {
 describe('getPersonByGroupFolder', () => {
   it('returns undefined for inactive person', () => {
     expect(getPersonByGroupFolder('ae_gone')).toBeUndefined();
+  });
+});
+
+describe('hasAccessTo — Person overload', () => {
+  it('accepts a Person object directly', () => {
+    const person = getPersonByGroupFolder('mgr1')!;
+    expect(person).toBeDefined();
+    expect(hasAccessTo(person, 'ae1')).toBe(true);
+  });
+
+  it('blocks manager access to a non-direct-report', () => {
+    // mgr1 manages ae1 and ae2, not ae3 (managed by mgr2)
+    expect(hasAccessTo('mgr1', 'ae3')).toBe(false);
+  });
+});
+
+describe('isDirectorOf — cross-subtree', () => {
+  it('returns false for a person in a different subtree', () => {
+    // dir1 has mgr1 and mgr2 beneath. ae4 is an orphan.
+    expect(isDirectorOf('dir1', 'ae4')).toBe(false);
   });
 });

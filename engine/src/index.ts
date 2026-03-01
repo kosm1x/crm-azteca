@@ -452,7 +452,8 @@ async function main(): Promise<void> {
   try {
     bootstrapCrm();  // CRM hook: initialize CRM schema and hooks
   } catch (err) {
-    logger.error({ err }, 'CRM bootstrap failed');
+    logger.fatal({ err }, 'CRM bootstrap failed — aborting startup');
+    process.exit(1);
   }
   logger.info('Database initialized');
   loadState();
