@@ -7,9 +7,11 @@ An agentic CRM for media ad sales teams. AI agents that do the CRM work for your
 Salespeople chat with AI agents via WhatsApp. Each person gets a personal CRM assistant that:
 
 - **Logs interactions** — After every client call, the AE tells their agent what happened. The agent logs it, updates deal stages, and flags follow-ups.
-- **Tracks quotas** — Agents know each AE's monthly/quarterly quota and proactively surface pipeline gaps.
-- **Suggests deals** — Based on historical data, seasonal patterns, and the current pipeline, agents recommend which accounts to prioritize.
-- **Escalates risks** — When a deal is stalled, a renewal is at risk, or quota attainment is low, the agent notifies the right manager.
+- **Tracks quotas** — Agents know each AE's weekly quota and proactively surface pipeline gaps.
+- **Manages email** — Search inbox, read messages, draft replies — all through the chat.
+- **Handles scheduling** — Creates calendar events, sets follow-up reminders, delivers morning briefings.
+- **Searches documents** — RAG pipeline indexes Google Drive files for semantic search scoped by hierarchy.
+- **Escalates risks** — When quota is critically low, negative patterns emerge, or mega-deals stall, the agent escalates up the chain (AE → Manager → Director → VP).
 
 ## Architecture
 
@@ -33,19 +35,79 @@ VP of Sales
 
 For a team of 50 salespeople, this creates ~68 WhatsApp groups, each with an isolated AI agent that has role-appropriate access to CRM data.
 
+### Message Flow
+
+```
+WhatsApp → engine (NanoClaw) → Direct tools (25 CRM tools via inference adapter)
+                                    ├── Role-based tool filtering
+                                    ├── Google Workspace (Gmail, Drive, Calendar)
+                                    ├── RAG search (buscar_documentos)
+                                    └── CRM CLAUDE.md (persona + schema + rules)
+```
+
+### Data Model
+
+15 SQLite tables: `persona`, `cuenta`, `contacto`, `contrato`, `descarga`, `propuesta`, `actividad`, `cuota`, `inventario`, `alerta_log`, `email_log`, `evento_calendario`, `crm_events`, `crm_documents`, `crm_embeddings`.
+
+### Tools by Role
+
+| Role | Tools | Examples |
+|------|-------|---------|
+| AE | 24 | Log activities, manage deals, send emails, set reminders, search docs |
+| Manager | 16 | Team pipeline, quota rollups, coaching briefings, email, docs |
+| Director | 15 | Regional analytics, event tracking, email, docs |
+| VP | 14 | Executive dashboards, cross-region visibility, docs |
+
+25 unique tools total across activity logging, pipeline management, Google Workspace (Gmail, Drive, Calendar), event tracking, document search (RAG), and follow-up reminders.
+
+### Proactive Workflows
+
+Scheduled tasks run automatically, staggered by role to prevent thundering herd:
+
+| Workflow | Schedule | Roles |
+|----------|----------|-------|
+| Morning briefing | Weekdays (VP 8:45, Dir 8:52, Mgr 9:00, AE 9:10) | All |
+| Weekly summary | Friday 4pm | AE |
+| Follow-up reminders | Hourly 9-6 weekdays | AE |
+| Alert evaluation | Every 2 hours | All (6 evaluators + event countdown) |
+| Document sync | Daily 3am | All (Google Drive → RAG index) |
+
+### Escalation Cascade
+
+Real-time escalation triggered on every activity insertion:
+
+```
+AE quota < 50%           → Manager notified
+3+ negative sentiments   → Manager coaching signal
+Entire team < 70% quota  → Director pattern alert
+3+ stalled mega-deals    → VP systemic risk warning
+```
+
 ## Project Structure
 
 ```
 agentic-crm/
-├── engine/          # NanoClaw — the AI agent platform (git subtree)
-├── crm/             # All CRM-specific code
-│   ├── src/         # Schema, hierarchy, IPC handlers, bootstrap
-│   ├── container/   # CRM container image (extends engine)
-│   ├── groups/      # CLAUDE.md templates per role
-│   └── tests/       # CRM unit tests
-├── scripts/         # Bootstrap, registration, data import
-├── docs/            # Architecture, deployment, upstream sync
-└── groups/          # Live group folders (created at runtime)
+├── engine/              # NanoClaw — the AI agent platform (git subtree)
+├── crm/
+│   ├── src/
+│   │   ├── schema.ts         # 15 CRM tables
+│   │   ├── bootstrap.ts      # Schema init + hooks
+│   │   ├── hierarchy.ts      # Org chart traversal + access control
+│   │   ├── tools/            # 25 tools across 10 modules
+│   │   ├── alerts.ts         # 6 alert evaluators + event countdown
+│   │   ├── escalation.ts     # 4 real-time escalation evaluators
+│   │   ├── doc-sync.ts       # RAG pipeline (chunk, embed, search)
+│   │   ├── register.ts       # Batch team registration (CSV/JSON)
+│   │   ├── briefing-seeds.ts # Staggered scheduled briefings
+│   │   ├── google-auth.ts    # Google Workspace JWT auth (6 clients)
+│   │   ├── ipc-handlers.ts   # 6 IPC task types
+│   │   └── followup-scheduler.ts  # Business-hours reminder scheduler
+│   ├── container/       # CRM container image (extends engine)
+│   ├── groups/          # CLAUDE.md templates per role (ae, manager, director, vp)
+│   └── tests/           # 361 tests across 15 test files
+├── scripts/             # Bootstrap, registration, data import
+├── docs/                # Architecture, deployment, upstream sync
+└── groups/              # Live group folders (created at runtime)
 ```
 
 ## Getting Started
@@ -73,10 +135,29 @@ agentic-crm/
    npm run register-team -- --file team.csv
    ```
 
+   Supports CSV and JSON. CSV format:
+   ```
+   name,role,phone,email,google_calendar_id,manager_name
+   Ana Lopez,vp,+521234567890,ana@company.com,,
+   Carlos Ruiz,director,+521234567891,carlos@company.com,,Ana Lopez
+   ```
+
 5. **Start the system**
    ```bash
    npm run dev
    ```
+
+## Development
+
+```bash
+npm run dev              # Run with hot reload (tsx watch)
+npm run build            # Compile TypeScript
+npm run typecheck        # Type check
+npm run test             # Run all tests (361 CRM tests)
+npm run bootstrap        # First-time CRM setup
+npm run register-team    # Register team from CSV/JSON
+npm run build:container  # Build CRM container (extends engine image)
+```
 
 ## Engine
 
