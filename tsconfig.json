@@ -9,11 +9,11 @@
     "outDir": "dist",
     "rootDir": ".",
     "declaration": true,
-    "composite": true
+    "noEmit": true
   },
-  "references": [
-    { "path": "./engine" },
-    { "path": "./crm" }
+  "include": [
+    "engine/src/**/*.ts",
+    "crm/src/**/*.ts"
   ],
-  "include": []
+  "exclude": ["node_modules", "**/node_modules", "**/dist"]
 }

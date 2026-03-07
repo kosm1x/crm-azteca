@@ -10,7 +10,7 @@ import { createCrmSchema } from '../src/schema.js';
 
 let testDb: InstanceType<typeof Database>;
 
-vi.mock('../../engine/src/db.js', () => ({
+vi.mock('../src/db.js', () => ({
   getDatabase: () => testDb,
 }));
 

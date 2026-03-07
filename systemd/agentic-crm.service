@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/agentic-crm
+WorkingDirectory=/root/claude/crm-azteca
 ExecStart=/usr/bin/node engine/dist/index.js
 Restart=on-failure
 RestartSec=5
@@ -13,12 +13,12 @@ StandardOutput=journal
 StandardError=journal
 
 # Environment
-EnvironmentFile=%h/agentic-crm/.env
+EnvironmentFile=/root/claude/crm-azteca/.env
 
 # Security
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=%h/agentic-crm/store %h/agentic-crm/data %h/agentic-crm/groups
+ReadWritePaths=/root/claude/crm-azteca/store /root/claude/crm-azteca/data /root/claude/crm-azteca/groups
 
 [Install]
 WantedBy=default.target

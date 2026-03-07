@@ -10,7 +10,7 @@ import { createCrmSchema } from '../src/schema.js';
 
 let testDb: InstanceType<typeof Database>;
 
-vi.mock('../../engine/src/db.js', () => ({
+vi.mock('../src/db.js', () => ({
   getDatabase: () => testDb,
 }));
 
@@ -21,7 +21,7 @@ vi.mock('../src/google-auth.js', () => ({
 
 const noop = () => {};
 const noopLogger = { info: noop, warn: noop, error: noop, debug: noop, fatal: noop, child: () => noopLogger };
-vi.mock('../../engine/src/logger.js', () => ({
+vi.mock('../src/logger.js', () => ({
   logger: noopLogger,
 }));
 

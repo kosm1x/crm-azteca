@@ -1,3 +1,3 @@
 import { logger as engineLogger } from '../../engine/src/logger.js';
 
-export const logger = engineLogger.child({ module: 'crm' });
+export const logger: typeof engineLogger = engineLogger.child({ module: 'crm' });
