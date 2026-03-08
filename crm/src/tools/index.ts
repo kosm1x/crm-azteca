@@ -64,7 +64,7 @@ const TOOL_REGISTRAR_ACTIVIDAD: ToolDefinition = {
   type: 'function',
   function: {
     name: 'registrar_actividad',
-    description: 'Registra una interacción con un cliente (llamada, reunión, comida, etc). Usa esto cada vez que el AE describe contacto con un cliente.',
+    description: 'Registra una interacción con un cliente (llamada, reunión, comida, etc). Usa esto cada vez que el Ejecutivo describe contacto con un cliente.',
     parameters: {
       type: 'object',
       properties: {
@@ -151,7 +151,7 @@ const TOOL_ACTUALIZAR_DESCARGA: ToolDefinition = {
       properties: {
         cuenta_nombre: { type: 'string', description: 'Nombre de la cuenta' },
         semana: { type: 'number', description: 'Número de semana (1-52)' },
-        notas_ae: { type: 'string', description: 'Notas del AE sobre facturación esperada' },
+        notas_ae: { type: 'string', description: 'Notas del Ejecutivo sobre facturación esperada' },
       },
       required: ['cuenta_nombre', 'notas_ae'],
     },
@@ -256,7 +256,7 @@ const TOOL_ENVIAR_EMAIL_SEGUIMIENTO: ToolDefinition = {
   type: 'function',
   function: {
     name: 'enviar_email_seguimiento',
-    description: 'Redacta y guarda un email de seguimiento. El AE debe confirmar antes de enviar.',
+    description: 'Redacta y guarda un email de seguimiento. El Ejecutivo debe confirmar antes de enviar.',
     parameters: {
       type: 'object',
       properties: {

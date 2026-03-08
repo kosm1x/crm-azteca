@@ -32,7 +32,7 @@ const BRIEFING_SEEDS: BriefingSeed[] = [
   {
     rol: 'gerente',
     cron: '0 9 * * 1',  // Staggered: base 9:00, offset by index
-    prompt: 'Resumen semanal de equipo: cuota por AE (logro vs meta), propuestas en riesgo (estancadas >14d o valor >5M), actividad por AE (ultima semana), gap descarga por cuenta, y top wins/losses. Formato WhatsApp.',
+    prompt: 'Resumen semanal de equipo: cuota por Ejecutivo (logro vs meta), propuestas en riesgo (estancadas >14d o valor >5M), actividad por Ejecutivo (ultima semana), gap descarga por cuenta, y top wins/losses. Formato WhatsApp.',
   },
   {
     rol: 'director',

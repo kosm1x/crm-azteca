@@ -98,7 +98,7 @@ export async function escalateQuotaEmergency(
 
   const msg =
     `*\u26a0\ufe0f Alerta: Cuota Critica*\n\n`
-    + `\u2022 AE: ${person.nombre}\n`
+    + `\u2022 Ejecutivo: ${person.nombre}\n`
     + `\u2022 Cuota actual: ${Math.round(row.porcentaje)}%\n`
     + `\u2022 Meta: alcanzar 80% antes del viernes\n\n`
     + `_Recomendacion: programa 1:1 urgente_`;
@@ -139,7 +139,7 @@ export async function escalateCoachingSignal(
 
   const msg =
     `*\u26a0\ufe0f Alerta: Senal de Coaching*\n\n`
-    + `\u2022 AE: ${person.nombre}\n`
+    + `\u2022 Ejecutivo: ${person.nombre}\n`
     + `\u2022 Sentimientos negativos esta semana: ${row.c}\n`
     + `\u2022 Patron detectado: posible desmotivacion o cuentas dificiles\n\n`
     + `_Recomendacion: agenda coaching 1:1 esta semana_`;
@@ -188,7 +188,7 @@ export async function escalatePatternDetection(
     `*\u26a0\ufe0f Alerta: Patron de Equipo*\n\n`
     + `\u2022 Gerente: ${gerente.nombre}\n`
     + `\u2022 Equipo completo por debajo del 70% de cuota (S${week})\n`
-    + `\u2022 AEs afectados: ${teamIds.length}\n\n`
+    + `\u2022 Ejecutivos afectados: ${teamIds.length}\n\n`
     + `_Recomendacion: revisar estrategia del equipo con el gerente_`;
 
   await deps.sendMessage(jid, msg);

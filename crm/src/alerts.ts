@@ -91,9 +91,9 @@ export function alertPropuestasEstancadas(): AlertResult[] {
           grupo_destino_folder: mgrFolder,
           mensaje: `*Alerta Escalada: Propuesta Estancada >14 dias*\n\nPropuesta "${row.titulo}" lleva ${row.dias_sin_actividad} dias sin actividad.\n`
             + `\u2022 Cuenta: ${row.cuenta_nombre ?? 'N/A'}\n`
-            + `\u2022 AE: ${getPersonById(row.ae_id)?.nombre ?? 'N/A'}\n`
+            + `\u2022 Ejecutivo: ${getPersonById(row.ae_id)?.nombre ?? 'N/A'}\n`
             + `\u2022 Etapa: ${row.etapa}\n\n`
-            + `Accion recomendada: revisar con el AE.`,
+            + `Accion recomendada: revisar con el Ejecutivo.`,
         });
       }
     }
@@ -200,7 +200,7 @@ export function alertDescargaGap(): AlertResult[] {
         mensaje: `*Alerta: Gap de Descarga Creciente*\n\n`
           + `La cuenta "${row.cuenta_nombre}" (${getPersonById(row.ae_id)?.nombre ?? 'N/A'}) tiene gap creciente por 3+ semanas.\n`
           + `\u2022 Gap actual: $${Number(row.gap_w1).toLocaleString('es-MX')}\n\n`
-          + `Accion recomendada: revisar con el AE.`,
+          + `Accion recomendada: revisar con el Ejecutivo.`,
       });
     }
   }
@@ -298,9 +298,9 @@ export function alertInactividadAe(): AlertResult[] {
       alerta_tipo: 'inactividad_ae',
       entidad_id: row.id,
       grupo_destino_folder: mgrFolder,
-      mensaje: `*Alerta: AE sin actividad*\n\n`
+      mensaje: `*Alerta: Ejecutivo sin actividad*\n\n`
         + `${row.nombre} lleva ${row.dias_inactivo} dias sin registrar actividad.\n\n`
-        + `Accion recomendada: revisar con el AE.`,
+        + `Accion recomendada: revisar con el Ejecutivo.`,
     });
   }
 

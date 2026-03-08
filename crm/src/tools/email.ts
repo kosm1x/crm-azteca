@@ -62,7 +62,7 @@ export function enviar_email_seguimiento(args: Record<string, unknown>, ctx: Too
       asunto,
       cuerpo: cuerpo.length > 200 ? cuerpo.slice(0, 200) + '...' : cuerpo,
     },
-    mensaje: `Email listo para enviar a ${contacto.nombre}. Pide confirmación al AE antes de enviar.`,
+    mensaje: `Email listo para enviar a ${contacto.nombre}. Pide confirmación al Ejecutivo antes de enviar.`,
   });
 }
 
