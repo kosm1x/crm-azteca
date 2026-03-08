@@ -575,6 +575,12 @@ async function main(): Promise<void> {
     while (true) {
       log(`Starting query (session: ${sessionId || 'new'}, resumeAt: ${resumeAt || 'latest'})...`);
 
+      // Emit instant acknowledgment before query (no LLM tokens spent).
+      // Skip for scheduled tasks — no human is waiting for a reply.
+      if (!containerInput.isScheduledTask) {
+        writeOutput({ status: 'success', result: 'Un momento...', newSessionId: sessionId, streaming: true });
+      }
+
       const queryResult = await runQuery(prompt, sessionId, mcpServerPath, containerInput, sdkEnv, resumeAt);
       if (queryResult.newSessionId) {
         sessionId = queryResult.newSessionId;

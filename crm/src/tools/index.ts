@@ -29,6 +29,7 @@ import { listar_archivos_drive, leer_archivo_drive } from './drive.js';
 import { buscar_web } from './web-search.js';
 import { analizar_winloss, analizar_tendencias } from './analytics.js';
 import { recomendar_crosssell } from './crosssell.js';
+import { generar_link_dashboard } from './dashboard.js';
 
 // ---------------------------------------------------------------------------
 // Tool context — passed to every tool handler
@@ -549,6 +550,18 @@ const TOOL_RECOMENDAR_CROSSSELL: ToolDefinition = {
   },
 };
 
+const TOOL_GENERAR_LINK_DASHBOARD: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'generar_link_dashboard',
+    description: 'Genera un enlace personalizado al dashboard web del CRM con datos en tiempo real (pipeline, cuota, descarga, actividad). El enlace incluye autenticacion y es valido por 30 dias.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Role-based tool sets
 // ---------------------------------------------------------------------------
@@ -565,6 +578,7 @@ const AE_TOOLS: ToolDefinition[] = [
   TOOL_LISTAR_ARCHIVOS_DRIVE, TOOL_LEER_ARCHIVO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS, TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS, TOOL_ANALIZAR_TENDENCIAS, TOOL_RECOMENDAR_CROSSSELL,
+  TOOL_GENERAR_LINK_DASHBOARD,
 ];
 
 const GERENTE_TOOLS: ToolDefinition[] = [
@@ -576,6 +590,7 @@ const GERENTE_TOOLS: ToolDefinition[] = [
   TOOL_LISTAR_ARCHIVOS_DRIVE, TOOL_LEER_ARCHIVO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS, TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS, TOOL_ANALIZAR_TENDENCIAS, TOOL_RECOMENDAR_CROSSSELL,
+  TOOL_GENERAR_LINK_DASHBOARD,
 ];
 
 const DIRECTOR_TOOLS: ToolDefinition[] = [
@@ -587,6 +602,7 @@ const DIRECTOR_TOOLS: ToolDefinition[] = [
   TOOL_LISTAR_ARCHIVOS_DRIVE, TOOL_LEER_ARCHIVO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS, TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS, TOOL_ANALIZAR_TENDENCIAS, TOOL_RECOMENDAR_CROSSSELL,
+  TOOL_GENERAR_LINK_DASHBOARD,
 ];
 
 const VP_TOOLS: ToolDefinition[] = [
@@ -598,6 +614,7 @@ const VP_TOOLS: ToolDefinition[] = [
   TOOL_LISTAR_ARCHIVOS_DRIVE, TOOL_LEER_ARCHIVO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS, TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS, TOOL_ANALIZAR_TENDENCIAS, TOOL_RECOMENDAR_CROSSSELL,
+  TOOL_GENERAR_LINK_DASHBOARD,
 ];
 
 export function getToolsForRole(role: 'ae' | 'gerente' | 'director' | 'vp'): ToolDefinition[] {
@@ -643,6 +660,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   analizar_winloss,
   analizar_tendencias,
   recomendar_crosssell,
+  generar_link_dashboard,
 };
 
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {

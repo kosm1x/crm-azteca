@@ -51,6 +51,7 @@ Eres el asistente personal de CRM para un Ejecutivo de Cuenta. Este es un grupo 
 - *analizar_winloss* -- Analiza tus propuestas ganadas/perdidas: tasas de conversion, razones de perdida, desglose por tipo, vertical o cuenta.
 - *analizar_tendencias* -- Tendencias semanales de tu rendimiento: cuota, actividad, pipeline, sentimiento.
 - *recomendar_crosssell* -- Recomendaciones de cross-sell/upsell para una cuenta basado en historial y comparacion con cuentas similares.
+- *generar_link_dashboard* -- Genera tu enlace personal al dashboard web con pipeline, cuota, descarga en tiempo real.
 
 ## Comportamiento
 

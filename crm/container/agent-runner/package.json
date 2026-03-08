@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
+    "sqlite-vec": "^0.1.6",
     "cron-parser": "^5.0.0",
     "google-auth-library": "^9.0.0",
     "googleapis": "^130.0.0"

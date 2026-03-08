@@ -62,20 +62,8 @@ const SESSIONS_DIR = '/workspace/group/.crm-sessions';
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
 const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
 
-// Pre-written acknowledgment phrases — picked at random, no LLM tokens wasted
-const ACK_PHRASES = [
-  'Entendido, lo consulto.',
-  'Revisando, un momento.',
-  'Lo verifico de inmediato.',
-  'Consultando los datos.',
-  'Preparando la información.',
-  'Lo tengo, revisando.',
-  'En ello, un momento.',
-  'Listo, lo proceso.',
-  'Dame un momento.',
-  'Ya lo reviso.',
-];
-let ackIndex = Math.floor(Math.random() * ACK_PHRASES.length);
+// Fixed acknowledgment message — no LLM tokens wasted
+const ACK_MESSAGE = 'Un momento...';
 
 // ---------------------------------------------------------------------------
 // I/O helpers
@@ -212,16 +200,23 @@ function buildOrgContext(persona: Persona): string {
     lines.push('Eres el nivel mas alto de la jerarquia.');
   }
 
-  // Direct reports
+  // Direct reports — full tree so VP/director can see the complete org
   const directReports = getDirectReports(persona.id);
   if (directReports.length > 0) {
     lines.push('');
     lines.push('Reportes directos:');
     for (const dr of directReports) {
-      // Sub-reports (e.g. director sees gerente's AEs)
       const subReports = getDirectReports(dr.id);
       if (subReports.length > 0) {
-        lines.push(`• *${dr.nombre}* (${dr.rol}) — equipo: ${subReports.map(s => s.nombre).join(', ')}`);
+        lines.push(`• *${dr.nombre}* (${dr.rol})`);
+        for (const sub of subReports) {
+          const leafReports = getDirectReports(sub.id);
+          if (leafReports.length > 0) {
+            lines.push(`  └ *${sub.nombre}* (${sub.rol}) → ${leafReports.map(l => l.nombre).join(', ')}`);
+          } else {
+            lines.push(`  └ *${sub.nombre}* (${sub.rol})`);
+          }
+        }
       } else {
         lines.push(`• *${dr.nombre}* (${dr.rol})`);
       }
@@ -491,10 +486,12 @@ async function main(): Promise<void> {
 
       log(`Starting inference (session: ${sessionId}, messages: ${messages.length})...`);
 
-      // Emit instant acknowledgment before inference (no LLM tokens spent)
-      const ack = ACK_PHRASES[ackIndex % ACK_PHRASES.length];
-      ackIndex++;
-      writeOutput({ status: 'success', result: ack, newSessionId: sessionId });
+      // Emit instant acknowledgment before inference (no LLM tokens spent).
+      // Skip for scheduled tasks — no human is waiting for a reply.
+      // streaming: true prevents the engine from calling queue.notifyIdle prematurely.
+      if (!containerInput.isScheduledTask) {
+        writeOutput({ status: 'success', result: ACK_MESSAGE, newSessionId: sessionId, streaming: true });
+      }
 
       // Call inference with tools (streaming text deltas via onTextChunk)
       firstBlockSent = false;
