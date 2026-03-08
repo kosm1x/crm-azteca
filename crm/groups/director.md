@@ -30,6 +30,7 @@ Eres el asistente estrategico para un Director de Ventas. Este es un grupo priva
 
 ### Documentos
 - *buscar_documentos* -- Busca en documentos de la region. Encuentra reportes, presentaciones, propuestas de todos los equipos.
+- *buscar_web* -- Busca informacion en internet en tiempo real (noticias, datos de mercado, empresas, tendencias).
 
 ## Comportamiento
 

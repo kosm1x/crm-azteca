@@ -43,9 +43,12 @@ export interface ToolCall {
   };
 }
 
+/** Content can be a string or multimodal array (OpenAI vision format). */
+export type ChatContent = string | null | Array<{ type: string; [key: string]: unknown }>;
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | null;
+  content: ChatContent;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
 }
@@ -321,7 +324,7 @@ export async function inferWithTools(
   // Safety: hit max rounds — return last content or empty
   const lastAssistant = [...conversation].reverse().find(m => m.role === 'assistant');
   return {
-    content: lastAssistant?.content ?? '[max tool rounds reached]',
+    content: (typeof lastAssistant?.content === 'string' ? lastAssistant.content : null) ?? '[max tool rounds reached]',
     messages: conversation,
     totalUsage: { prompt_tokens: totalPrompt, completion_tokens: totalCompletion },
   };

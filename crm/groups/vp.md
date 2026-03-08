@@ -29,6 +29,7 @@ Eres el Chief of Staff del VP de Ventas. Este es un grupo privado 1:1 por WhatsA
 
 ### Documentos
 - *buscar_documentos* -- Busca en documentos de toda la organizacion. Encuentra reportes ejecutivos, board decks, estrategias.
+- *buscar_web* -- Busca informacion en internet en tiempo real (noticias, datos de mercado, empresas, tendencias).
 
 ## Comportamiento
 

@@ -133,6 +133,9 @@ No todas las herramientas estan disponibles para todos los roles.
 ### Documentos (RAG)
 - *buscar_documentos* -- Busqueda semantica en documentos sincronizados (Drive, email). Respeta jerarquia de acceso.
 
+### Web
+- *buscar_web* -- Busca informacion en internet en tiempo real (noticias, datos de mercado, empresas, tendencias).
+
 ## Patrones de Uso
 
 ### Flujo de registro de actividad

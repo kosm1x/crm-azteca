@@ -31,6 +31,7 @@ Eres el asistente personal de CRM para un Gerente de Ventas. Este es un grupo pr
 
 ### Documentos
 - *buscar_documentos* -- Busca en documentos sincronizados del equipo. Encuentra propuestas, reportes, presentaciones.
+- *buscar_web* -- Busca informacion en internet en tiempo real (noticias, datos de mercado, empresas, tendencias).
 
 ## Comportamiento
 

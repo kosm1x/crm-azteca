@@ -16,7 +16,8 @@ import fs from 'fs';
 import path from 'path';
 import { bootstrapCrm } from '../../src/bootstrap.js';
 import { getDatabase } from '../../../engine/src/db.js';
-import { getPersonByGroupFolder } from '../../src/hierarchy.js';
+import { getPersonByGroupFolder, getPersonById, getDirectReports, getManager } from '../../src/hierarchy.js';
+import type { Persona } from '../../src/hierarchy.js';
 import { buildToolContext, executeTool, getToolsForRole } from '../../src/tools/index.js';
 import { inferWithTools } from '../../src/inference-adapter.js';
 import type { ChatMessage, ToolDefinition } from '../../src/inference-adapter.js';
@@ -35,6 +36,7 @@ interface ContainerInput {
   isScheduledTask?: boolean;
   assistantName?: string;
   secrets?: Record<string, string>;
+  imageAttachments?: Array<{ relativePath: string; mediaType: string }>;
 }
 
 interface ContainerOutput {
@@ -176,7 +178,53 @@ function generateSessionId(): string {
 // System prompt construction
 // ---------------------------------------------------------------------------
 
-function buildSystemPrompt(groupFolder: string, personaName: string, personaRol: string): string {
+function buildOrgContext(persona: Persona): string {
+  const lines: string[] = ['## Tu Equipo'];
+
+  // Who I report to
+  if (persona.reporta_a) {
+    const boss = getPersonById(persona.reporta_a);
+    if (boss) {
+      lines.push(`Reportas a: *${boss.nombre}* (${boss.rol})`);
+      // Boss's boss (for full chain visibility)
+      if (boss.reporta_a) {
+        const grandBoss = getPersonById(boss.reporta_a);
+        if (grandBoss) lines.push(`  └ quien reporta a: *${grandBoss.nombre}* (${grandBoss.rol})`);
+      }
+    }
+  } else {
+    lines.push('Eres el nivel mas alto de la jerarquia.');
+  }
+
+  // Direct reports
+  const directReports = getDirectReports(persona.id);
+  if (directReports.length > 0) {
+    lines.push('');
+    lines.push('Reportes directos:');
+    for (const dr of directReports) {
+      // Sub-reports (e.g. director sees gerente's AEs)
+      const subReports = getDirectReports(dr.id);
+      if (subReports.length > 0) {
+        lines.push(`• *${dr.nombre}* (${dr.rol}) — equipo: ${subReports.map(s => s.nombre).join(', ')}`);
+      } else {
+        lines.push(`• *${dr.nombre}* (${dr.rol})`);
+      }
+    }
+  }
+
+  // Peers (same manager)
+  if (persona.reporta_a) {
+    const peers = getDirectReports(persona.reporta_a).filter(p => p.id !== persona.id);
+    if (peers.length > 0) {
+      lines.push('');
+      lines.push(`Pares (mismo jefe): ${peers.map(p => `*${p.nombre}* (${p.rol})`).join(', ')}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function buildSystemPrompt(groupFolder: string, persona: Persona): string {
   const parts: string[] = [];
 
   // Global CLAUDE.md
@@ -192,7 +240,10 @@ function buildSystemPrompt(groupFolder: string, personaName: string, personaRol:
   }
 
   // Identity injection
-  parts.push(`\n## Tu Identidad\nNombre: ${personaName}\nRol: ${personaRol}\nGrupo: ${groupFolder}`);
+  parts.push(`\n## Tu Identidad\nNombre: ${persona.nombre}\nRol: ${persona.rol}\nGrupo: ${groupFolder}`);
+
+  // Org tree injection
+  parts.push(buildOrgContext(persona));
 
   return parts.join('\n\n---\n\n');
 }
@@ -295,8 +346,7 @@ async function main(): Promise<void> {
   // Build system prompt
   const systemPrompt = buildSystemPrompt(
     containerInput.groupFolder,
-    persona.nombre,
-    persona.rol,
+    persona,
   );
 
   // Tool executor: wraps executeTool with ToolContext + timeout
@@ -344,10 +394,13 @@ async function main(): Promise<void> {
     prompt += '\n' + pending.join('\n');
   }
 
+  // Note: image attachments are referenced in the prompt as [Image: attachments/...]
+  // Qwen 3.5 (text model) cannot process image_url content blocks, so we pass
+  // the text reference only. The agent can acknowledge the image was received.
+
   // Message loop
   try {
     while (true) {
-      // Append user message
       messages.push({ role: 'user', content: prompt });
 
       // Truncate for context window
@@ -407,6 +460,7 @@ main();
 
 // Exports for testing
 export {
+  buildOrgContext,
   buildSystemPrompt,
   truncateMessages,
   loadSession,

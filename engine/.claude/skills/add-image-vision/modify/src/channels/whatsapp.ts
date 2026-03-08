@@ -1,12 +1,12 @@
-import { exec, execFileSync } from 'child_process';
+import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
 import makeWASocket, {
   Browsers,
   DisconnectReason,
-  WASocket,
   downloadMediaMessage,
+  WASocket,
   fetchLatestWaWebVersion,
   makeCacheableSignalKeyStore,
   normalizeMessageContent,
@@ -28,6 +28,7 @@ import {
   OnChatMetadata,
   RegisteredGroup,
 } from '../types.js';
+import { registerChannel, ChannelOpts } from './registry.js';
 
 const GROUP_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -87,11 +88,6 @@ export class WhatsAppChannel implements Channel {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        // Skip exit when using --pairing-code (QR fires before pairing code is ready)
-        if (process.argv.includes('--pairing-code')) {
-          logger.info('QR received but pairing code mode active, waiting...');
-          return;
-        }
         const msg =
           'WhatsApp authentication required. Run /setup in Claude Code.';
         logger.error(msg);
@@ -117,15 +113,7 @@ export class WhatsAppChannel implements Channel {
         );
 
         if (shouldReconnect) {
-          logger.info('Reconnecting...');
-          this.connectInternal().catch((err) => {
-            logger.error({ err }, 'Failed to reconnect, retrying in 5s');
-            setTimeout(() => {
-              this.connectInternal().catch((err2) => {
-                logger.error({ err: err2 }, 'Reconnection retry failed');
-              });
-            }, 5000);
-          });
+          this.scheduleReconnect(1);
         } else {
           logger.info('Logged out. Run /setup to re-authenticate.');
           process.exit(0);
@@ -180,125 +168,89 @@ export class WhatsAppChannel implements Channel {
 
     this.sock.ev.on('messages.upsert', async ({ messages }) => {
       for (const msg of messages) {
-        if (!msg.message) continue;
-        const rawJid = msg.key.remoteJid;
-        if (!rawJid || rawJid === 'status@broadcast') continue;
+        try {
+          if (!msg.message) continue;
+          // Unwrap container types (viewOnceMessageV2, ephemeralMessage,
+          // editedMessage, etc.) so that conversation, extendedTextMessage,
+          // imageMessage, etc. are accessible at the top level.
+          const normalized = normalizeMessageContent(msg.message);
+          if (!normalized) continue;
+          const rawJid = msg.key.remoteJid;
+          if (!rawJid || rawJid === 'status@broadcast') continue;
 
-        // Translate LID JID to phone JID if applicable
-        const chatJid = await this.translateJid(rawJid);
+          // Translate LID JID to phone JID if applicable
+          const chatJid = await this.translateJid(rawJid);
 
-        const timestamp = new Date(
-          Number(msg.messageTimestamp) * 1000,
-        ).toISOString();
+          const timestamp = new Date(
+            Number(msg.messageTimestamp) * 1000,
+          ).toISOString();
 
-        // Always notify about chat metadata for group discovery
-        const isGroup = chatJid.endsWith('@g.us');
-        this.opts.onChatMetadata(
-          chatJid,
-          timestamp,
-          undefined,
-          'whatsapp',
-          isGroup,
-        );
-
-        // Only deliver full message for registered groups
-        const groups = this.opts.registeredGroups();
-        const group = groups[chatJid];
-        if (group) {
-          // Normalize viewOnce/ephemeral/edited message wrappers
-          const normalized = normalizeMessageContent(msg.message) || msg.message;
-          let content =
-            normalized?.conversation ||
-            normalized?.extendedTextMessage?.text ||
-            normalized?.imageMessage?.caption ||
-            normalized?.videoMessage?.caption ||
-            '';
-
-          // Download and process image attachments
-          if (normalized?.imageMessage) {
-            try {
-              const groupDir = path.join(GROUPS_DIR, group.folder);
-              const buffer = await downloadMediaMessage(msg, 'buffer', {});
-              const caption = normalized.imageMessage.caption || '';
-              const result = await processImage(buffer as Buffer, groupDir, caption);
-              if (result) content = result.content;
-            } catch (err) {
-              logger.warn({ err, chatJid }, 'Failed to download/process image');
-            }
-          }
-
-          // Download PDF, extract text with pdftotext, and inline it
-          if (normalized?.documentMessage?.mimetype === 'application/pdf') {
-            try {
-              const buffer = await downloadMediaMessage(msg, 'buffer', {});
-              const groupDir = path.join(GROUPS_DIR, group.folder);
-              const attachDir = path.join(groupDir, 'attachments');
-              fs.mkdirSync(attachDir, { recursive: true });
-              const filename = path.basename(
-                normalized.documentMessage.fileName ||
-                `doc-${Date.now()}.pdf`,
-              );
-              const filePath = path.join(attachDir, filename);
-              fs.writeFileSync(filePath, buffer as Buffer);
-              const sizeKB = Math.round((buffer as Buffer).length / 1024);
-
-              // Extract text inline so the agent can read it directly
-              let pdfText = '';
-              try {
-                pdfText = execFileSync('pdftotext', ['-layout', filePath, '-'], {
-                  timeout: 15000,
-                  maxBuffer: 512 * 1024,
-                }).toString().trim();
-              } catch (extractErr) {
-                logger.warn({ err: extractErr, filename }, 'pdftotext extraction failed');
-              }
-
-              const caption = normalized.documentMessage.caption || '';
-              if (pdfText) {
-                // Truncate to ~8K chars to avoid blowing up context
-                const truncated = pdfText.length > 8000
-                  ? pdfText.slice(0, 8000) + '\n... [truncado, documento completo: ' + sizeKB + 'KB]'
-                  : pdfText;
-                const header = `[PDF: ${filename} (${sizeKB}KB)]`;
-                content = caption
-                  ? `${caption}\n\n${header}\n${truncated}`
-                  : `${header}\n${truncated}`;
-              } else {
-                content = caption
-                  ? `${caption}\n\n[PDF adjunto: ${filename} (${sizeKB}KB) — no se pudo extraer texto]`
-                  : `[PDF adjunto: ${filename} (${sizeKB}KB) — no se pudo extraer texto]`;
-              }
-              logger.info({ jid: chatJid, filename, textLen: pdfText.length }, 'Downloaded PDF attachment');
-            } catch (err) {
-              logger.warn({ err, jid: chatJid }, 'Failed to download PDF attachment');
-            }
-          }
-
-          // Skip protocol messages with no text content (encryption keys, read receipts, etc.)
-          if (!content) continue;
-
-          const sender = msg.key.participant || msg.key.remoteJid || '';
-          const senderName = msg.pushName || sender.split('@')[0];
-
-          const fromMe = msg.key.fromMe || false;
-          // Detect bot messages: with own number, fromMe is reliable
-          // since only the bot sends from that number.
-          // With shared number, bot messages carry the assistant name prefix
-          // (even in DMs/self-chat) so we check for that.
-          const isBotMessage = ASSISTANT_HAS_OWN_NUMBER
-            ? fromMe
-            : content.startsWith(`${ASSISTANT_NAME}:`);
-
-          this.opts.onMessage(chatJid, {
-            id: msg.key.id || '',
-            chat_jid: chatJid,
-            sender,
-            sender_name: senderName,
-            content,
+          // Always notify about chat metadata for group discovery
+          const isGroup = chatJid.endsWith('@g.us');
+          this.opts.onChatMetadata(
+            chatJid,
             timestamp,
-            is_from_me: fromMe,
-            is_bot_message: isBotMessage,
-          });
+            undefined,
+            'whatsapp',
+            isGroup,
+          );
+
+          // Only deliver full message for registered groups
+          const groups = this.opts.registeredGroups();
+          if (groups[chatJid]) {
+            let content =
+              normalized.conversation ||
+              normalized.extendedTextMessage?.text ||
+              normalized.imageMessage?.caption ||
+              normalized.videoMessage?.caption ||
+              '';
+
+            // Image attachment handling
+            if (isImageMessage(msg)) {
+              try {
+                const buffer = await downloadMediaMessage(msg, 'buffer', {});
+                const groupDir = path.join(GROUPS_DIR, groups[chatJid].folder);
+                const caption = normalized?.imageMessage?.caption ?? '';
+                const result = await processImage(buffer as Buffer, groupDir, caption);
+                if (result) {
+                  content = result.content;
+                }
+              } catch (err) {
+                logger.warn({ err, jid: chatJid }, 'Image - download failed');
+              }
+            }
+
+            // Skip protocol messages with no text content (encryption keys, read receipts, etc.)
+            if (!content) continue;
+
+            const sender = msg.key.participant || msg.key.remoteJid || '';
+            const senderName = msg.pushName || sender.split('@')[0];
+
+            const fromMe = msg.key.fromMe || false;
+            // Detect bot messages: with own number, fromMe is reliable
+            // since only the bot sends from that number.
+            // With shared number, bot messages carry the assistant name prefix
+            // (even in DMs/self-chat) so we check for that.
+            const isBotMessage = ASSISTANT_HAS_OWN_NUMBER
+              ? fromMe
+              : content.startsWith(`${ASSISTANT_NAME}:`);
+
+            this.opts.onMessage(chatJid, {
+              id: msg.key.id || '',
+              chat_jid: chatJid,
+              sender,
+              sender_name: senderName,
+              content,
+              timestamp,
+              is_from_me: fromMe,
+              is_bot_message: isBotMessage,
+            });
+          }
+        } catch (err) {
+          logger.error(
+            { err, remoteJid: msg.key?.remoteJid },
+            'Error processing incoming message',
+          );
         }
       }
     });
@@ -357,6 +309,10 @@ export class WhatsAppChannel implements Channel {
     }
   }
 
+  async syncGroups(force: boolean): Promise<void> {
+    return this.syncGroupMetadata(force);
+  }
+
   /**
    * Sync group metadata from WhatsApp.
    * Fetches all participating groups and stores their names in the database.
@@ -391,6 +347,17 @@ export class WhatsAppChannel implements Channel {
     } catch (err) {
       logger.error({ err }, 'Failed to sync group metadata');
     }
+  }
+
+  private scheduleReconnect(attempt: number): void {
+    const delayMs = Math.min(5000 * Math.pow(2, attempt - 1), 300000);
+    logger.info({ attempt, delayMs }, 'Reconnecting...');
+    setTimeout(() => {
+      this.connectInternal().catch((err) => {
+        logger.error({ err, attempt }, 'Reconnection attempt failed');
+        this.scheduleReconnect(attempt + 1);
+      });
+    }, delayMs);
   }
 
   private async translateJid(jid: string): Promise<string> {
@@ -448,3 +415,5 @@ export class WhatsAppChannel implements Channel {
     }
   }
 }
+
+registerChannel('whatsapp', (opts: ChannelOpts) => new WhatsAppChannel(opts));

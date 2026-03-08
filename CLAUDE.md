@@ -19,10 +19,10 @@ Agentic CRM for media ad sales. NanoClaw engine at `engine/`, all CRM code at `c
 | `crm/src/escalation.ts` | Real-time escalation (quota, coaching, pattern, systemic) |
 | `crm/src/alerts.ts` | Alert evaluators (6 types + event countdown) |
 | `crm/src/google-auth.ts` | Google Workspace JWT auth (Gmail, Drive, Calendar) |
-| `crm/src/tools/index.ts` | Tool registry: 25 tools, role-based filtering |
+| `crm/src/tools/index.ts` | Tool registry: 26 tools, role-based filtering |
 | `crm/groups/global.md` | Global CLAUDE.md template (schema, queries, rules) |
-| `crm/groups/ae.md` | AE persona template (24 tools) |
-| `crm/groups/manager.md` | Manager persona template (16 tools) |
+| `crm/groups/ae.md` | AE persona template (25 tools) |
+| `crm/groups/manager.md` | Manager persona template (17 tools) |
 
 ### Engine Hook Points (DO NOT modify beyond these 5 files)
 

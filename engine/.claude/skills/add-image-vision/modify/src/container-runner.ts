@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 
 import {
-  CONTAINER_IMAGE as CONTAINER_IMAGE_DEFAULT,
+  CONTAINER_IMAGE,
   CONTAINER_MAX_OUTPUT_SIZE,
   CONTAINER_TIMEOUT,
   DATA_DIR,
@@ -16,11 +16,6 @@ import {
   TIMEZONE,
 } from './config.js';
 import { readEnvFile } from './env.js';
-
-// CRM hook: read CONTAINER_IMAGE from .env directly so it always overrides the
-// nanoclaw default regardless of whether process.env was pre-populated.
-const { CONTAINER_IMAGE: CONTAINER_IMAGE_ENV } = readEnvFile(['CONTAINER_IMAGE']);
-const CONTAINER_IMAGE = CONTAINER_IMAGE_ENV || CONTAINER_IMAGE_DEFAULT;
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
 import { logger } from './logger.js';
 import {
@@ -203,22 +198,6 @@ function buildVolumeMounts(
     readonly: false,
   });
 
-  // CRM hook: Mount CRM document store (read-only) for agent document access
-  const crmDocsDir = path.join(GROUPS_DIR, '..', 'store', 'documents', group.folder);
-  if (fs.existsSync(crmDocsDir)) {
-    mounts.push({
-      hostPath: crmDocsDir,
-      containerPath: '/workspace/extra/crm-documents',
-      readonly: true,
-    });
-  }
-
-  // CRM hook: Mount CRM database directory (read-write) for direct tool access.
-  // Uses DATA_DIR/store (data/store/) which houses crm.db — kept separate from
-  // store/messages.db (engine's WAL db) to avoid SQLITE_IOERR_SHMOPEN on Docker
-  // bind mounts when both the engine process and the container open the same file.
-  mounts.push({ hostPath: path.join(DATA_DIR, 'store'), containerPath: '/workspace/extra/crm-db', readonly: false });
-
   // Additional mounts validated against external allowlist (tamper-proof from containers)
   if (group.containerConfig?.additionalMounts) {
     const validatedMounts = validateAdditionalMounts(
@@ -238,10 +217,10 @@ function buildVolumeMounts(
  */
 function readSecrets(): Record<string, string> {
   return readEnvFile([
-    'CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY',
-    'INFERENCE_PRIMARY_URL', 'INFERENCE_PRIMARY_KEY', 'INFERENCE_PRIMARY_MODEL',
-    'INFERENCE_FALLBACK_URL', 'INFERENCE_FALLBACK_KEY', 'INFERENCE_FALLBACK_MODEL',
-    'BRAVE_SEARCH_API_KEY',
+    'CLAUDE_CODE_OAUTH_TOKEN',
+    'ANTHROPIC_API_KEY',
+    'ANTHROPIC_BASE_URL',
+    'ANTHROPIC_AUTH_TOKEN',
   ]);
 }
 
@@ -253,20 +232,15 @@ function buildContainerArgs(
 
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);
-  // CRM hook: tell the container agent where to find the CRM database
-  args.push('-e', 'CRM_DB_PATH=/workspace/extra/crm-db/crm.db');
 
   // Run as host user so bind-mounted files are accessible.
-  // When running as root (uid 0), also run the container as root so
-  // bind-mounted files written by the host are accessible inside.
-  // Skip when getuid is unavailable (native Windows without WSL).
+  // Skip when running as root (uid 0), as the container's node user (uid 1000),
+  // or when getuid is unavailable (native Windows without WSL).
   const hostUid = process.getuid?.();
   const hostGid = process.getgid?.();
-  if (hostUid != null && hostUid !== 1000) {
-    args.push('--user', `${hostUid}:${hostGid ?? 0}`);
-    if (hostUid !== 0) {
-      args.push('-e', 'HOME=/home/node');
-    }
+  if (hostUid != null && hostUid !== 0 && hostUid !== 1000) {
+    args.push('--user', `${hostUid}:${hostGid}`);
+    args.push('-e', 'HOME=/home/node');
   }
 
   for (const mount of mounts) {
