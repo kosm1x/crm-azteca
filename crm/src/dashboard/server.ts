@@ -16,7 +16,9 @@
  */
 
 import http from 'http';
-import { URL } from 'url';
+import fs from 'fs';
+import path from 'path';
+import { URL, fileURLToPath } from 'url';
 import { logger } from '../logger.js';
 import { verifyToken, buildContextFromToken, createToken } from './auth.js';
 import {
@@ -24,6 +26,9 @@ import {
   getActividades, getEquipo, getAlertas,
 } from './api.js';
 import type { ToolContext } from '../tools/index.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const STATIC_DIR = path.resolve(__dirname, '../../dashboard');
 
 type ApiHandler = (query: Record<string, string>, ctx: ToolContext) => unknown;
 
@@ -105,6 +110,12 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     return;
   }
 
+  // Static file serving for /dashboard/*
+  if (pathname.startsWith('/dashboard/')) {
+    serveStatic(pathname.slice('/dashboard/'.length), res);
+    return;
+  }
+
   // All API routes require auth
   const handler = API_ROUTES[pathname];
   if (!handler) {
@@ -135,6 +146,45 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
   } catch (err) {
     logger.error({ err, pathname }, 'Dashboard API error');
     sendJson(res, 500, { error: 'Internal server error' });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Static file serving
+// ---------------------------------------------------------------------------
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
+
+function serveStatic(filePath: string, res: http.ServerResponse): void {
+  // Prevent directory traversal
+  const safe = path.normalize(filePath).replace(/^(\.\.(\/|\\|$))+/, '');
+  const fullPath = path.join(STATIC_DIR, safe);
+
+  // Must stay within STATIC_DIR
+  if (!fullPath.startsWith(STATIC_DIR)) {
+    sendJson(res, 403, { error: 'Forbidden' });
+    return;
+  }
+
+  try {
+    const content = fs.readFileSync(fullPath);
+    const ext = path.extname(fullPath);
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=300',
+    });
+    res.end(content);
+  } catch {
+    sendJson(res, 404, { error: 'Not found' });
   }
 }
 

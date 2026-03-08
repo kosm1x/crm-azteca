@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM Azteca — Dashboard</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <h1>CRM Azteca</h1>
+    <p>Ingresa tu token de acceso para ver el dashboard.</p>
+    <input type="text" id="token-input" placeholder="Pega tu token aquí..." autofocus>
+    <button id="login-btn">Entrar</button>
+    <div id="error" class="error-msg" style="display:none; margin-top:16px;"></div>
+  </div>
+
+  <script type="module">
+    import { saveToken } from '/dashboard/shared.js';
+
+    // Check if token already in URL
+    const urlToken = new URLSearchParams(window.location.search).get('token');
+    if (urlToken) {
+      saveToken(urlToken);
+      redirect(urlToken);
+    }
+
+    // Check localStorage
+    const stored = localStorage.getItem('crm_dashboard_token');
+    if (stored) {
+      redirect(stored);
+    }
+
+    async function redirect(token) {
+      // Verify token by hitting a lightweight endpoint
+      try {
+        const res = await fetch('/api/v1/equipo', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          saveToken(token);
+          window.location.href = `/dashboard/vp.html?token=${encodeURIComponent(token)}`;
+        } else {
+          showError('Token inválido o expirado.');
+        }
+      } catch {
+        showError('No se pudo conectar al servidor.');
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    document.getElementById('login-btn').addEventListener('click', () => {
+      const token = document.getElementById('token-input').value.trim();
+      if (!token) return showError('Ingresa un token.');
+      redirect(token);
+    });
+
+    document.getElementById('token-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('login-btn').click();
+    });
+  </script>
+</body>
+</html>
