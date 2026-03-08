@@ -39,7 +39,15 @@
         });
         if (res.ok) {
           saveToken(token);
-          window.location.href = `/dashboard/vp.html?token=${encodeURIComponent(token)}`;
+          // Decode role from JWT to redirect to the right dashboard
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            const rolePages = { vp: 'vp.html', director: 'director.html', gerente: 'manager.html', ae: 'manager.html' };
+            const page = rolePages[payload.rol] || 'vp.html';
+            window.location.href = `/dashboard/${page}?token=${encodeURIComponent(token)}`;
+          } catch {
+            window.location.href = `/dashboard/vp.html?token=${encodeURIComponent(token)}`;
+          }
         } else {
           showError('Token inválido o expirado.');
         }
