@@ -7,29 +7,7 @@
 
 import { getDatabase } from '../db.js';
 import type { ToolContext } from '../tools/index.js';
-
-// ---------------------------------------------------------------------------
-// Shared helpers (same pattern as crm/src/tools/consulta.ts)
-// ---------------------------------------------------------------------------
-
-function scopeFilter(ctx: ToolContext, alias = 'ae_id'): { where: string; params: string[] } {
-  if (ctx.rol === 'vp') return { where: '', params: [] };
-  if (ctx.rol === 'director') {
-    const ids = [ctx.persona_id, ...ctx.full_team_ids];
-    return { where: `AND ${alias} IN (${ids.map(() => '?').join(',')})`, params: ids };
-  }
-  if (ctx.rol === 'gerente') {
-    const ids = [ctx.persona_id, ...ctx.team_ids];
-    return { where: `AND ${alias} IN (${ids.map(() => '?').join(',')})`, params: ids };
-  }
-  return { where: `AND ${alias} = ?`, params: [ctx.persona_id] };
-}
-
-function getCurrentWeek(): number {
-  const d = new Date();
-  const start = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(((d.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7);
-}
+import { scopeFilter, getCurrentWeek, dateCutoff } from '../tools/helpers.js';
 
 // ---------------------------------------------------------------------------
 // GET /api/v1/pipeline
@@ -287,9 +265,10 @@ export function getEquipo(_query: Record<string, string>, ctx: ToolContext): unk
 export function getAlertas(query: Record<string, string>, ctx: ToolContext): unknown {
   const db = getDatabase();
   const dias = query.dias ? parseInt(query.dias, 10) : 7;
+  const cutoff = dateCutoff(dias);
 
-  let where = `WHERE a.fecha_envio >= datetime('now', '-${dias} days')`;
-  const params: unknown[] = [];
+  let where = `WHERE a.fecha_envio >= ?`;
+  const params: unknown[] = [cutoff];
 
   // Scope: only show alerts for groups the user has access to
   if (ctx.rol === 'ae') {

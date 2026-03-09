@@ -39,7 +39,7 @@ For a team of 50 salespeople, this creates ~68 WhatsApp groups, each with an iso
 ### Message Flow
 
 ```
-WhatsApp → engine (NanoClaw) → Direct tools (29 CRM tools via inference adapter)
+WhatsApp → engine (NanoClaw) → Direct tools (31 CRM tools via inference adapter)
                                     ├── Role-based tool filtering
                                     ├── Google Workspace (Gmail, Drive, Calendar)
                                     ├── RAG search (sqlite-vec KNN + text-embedding-v3)
@@ -55,12 +55,12 @@ WhatsApp → engine (NanoClaw) → Direct tools (29 CRM tools via inference adap
 
 | Role | Tools | Examples |
 |------|-------|---------|
-| AE | 28 | Log activities, manage deals, send emails, set reminders, search docs, web search, analytics, cross-sell |
-| Manager | 20 | Team pipeline, quota rollups, coaching briefings, email, docs, web search, analytics, cross-sell |
-| Director | 19 | Regional analytics, event tracking, email, docs, web search, win/loss trends, cross-sell |
-| VP | 18 | Executive dashboards, cross-region visibility, docs, web search, org-wide analytics, cross-sell |
+| AE | 29 | Log activities, manage deals, send emails, set reminders, search docs, web search, analytics, cross-sell |
+| Manager | 22 | Team pipeline, quota rollups, coaching briefings, email, docs, web search, analytics, cross-sell, swarm analysis |
+| Director | 21 | Analytics, event tracking, email, docs, web search, win/loss trends, cross-sell, swarm analysis |
+| VP | 20 | Executive dashboards, org-wide visibility, docs, web search, analytics, cross-sell, swarm analysis |
 
-29 unique tools total across activity logging, pipeline management, Google Workspace (Gmail, Drive, Calendar), event tracking, document search (RAG with sqlite-vec), web search, historical analytics, cross-sell recommendations, and follow-up reminders.
+31 unique tools total across activity logging, pipeline management, Google Workspace (Gmail, Drive, Calendar), event tracking, document search (RAG with sqlite-vec), web search, historical analytics, cross-sell recommendations, parallel swarm analysis, and follow-up reminders.
 
 ### Proactive Workflows
 
@@ -95,7 +95,7 @@ agentic-crm/
 │   │   ├── schema.ts         # 17 CRM tables (incl. sqlite-vec + dashboard_links)
 │   │   ├── bootstrap.ts      # Schema init + hooks
 │   │   ├── hierarchy.ts      # Org chart traversal + access control
-│   │   ├── tools/            # 29 tools across 13 modules
+│   │   ├── tools/            # 31 tools across 17 modules
 │   │   ├── alerts.ts         # 6 alert evaluators + event countdown
 │   │   ├── escalation.ts     # 4 real-time escalation evaluators
 │   │   ├── embedding.ts      # Dashscope text-embedding-v3 API + local fallback
@@ -108,7 +108,7 @@ agentic-crm/
 │   │   └── dashboard/       # REST API dashboard (auth + 6 endpoints)
 │   ├── container/       # CRM container image (extends engine)
 │   ├── groups/          # CLAUDE.md templates per role (ae, manager, director, vp)
-│   └── tests/           # 425 tests across 19 test files
+│   └── tests/           # 481 tests across 22 test files
 ├── scripts/             # Bootstrap, registration, data import
 ├── docs/                # Architecture, deployment, upstream sync
 └── groups/              # Live group folders (created at runtime)
@@ -157,7 +157,7 @@ agentic-crm/
 npm run dev              # Run with hot reload (tsx watch)
 npm run build            # Compile TypeScript
 npm run typecheck        # Type check
-npm run test             # Run all tests (425 CRM tests)
+npm run test             # Run all tests (481 CRM tests)
 npm run bootstrap        # First-time CRM setup
 npm run register-team    # Register team from CSV/JSON
 npm run build:container  # Build CRM container (extends engine image)

@@ -30,6 +30,7 @@ import { buscar_web } from './web-search.js';
 import { analizar_winloss, analizar_tendencias } from './analytics.js';
 import { recomendar_crosssell } from './crosssell.js';
 import { generar_link_dashboard } from './dashboard.js';
+import { ejecutar_swarm } from './swarm.js';
 
 // ---------------------------------------------------------------------------
 // Tool context — passed to every tool handler
@@ -562,6 +563,27 @@ const TOOL_GENERAR_LINK_DASHBOARD: ToolDefinition = {
   },
 };
 
+const TOOL_EJECUTAR_SWARM: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'ejecutar_swarm',
+    description: 'Ejecuta un análisis multi-dimensional en paralelo. Combina 4-6 consultas en una sola llamada para preguntas complejas. Recetas: resumen_semanal_equipo (gerente: pipeline+cuota+actividad+sentimiento), diagnostico_persona (gerente/director: análisis profundo de un ejecutivo), comparar_equipo (gerente/director: comparativa lado a lado), resumen_ejecutivo (vp: visión organizacional completa), diagnostico_medio (director/vp: rendimiento por tv_abierta/ctv/radio/digital).',
+    parameters: {
+      type: 'object',
+      properties: {
+        receta: {
+          type: 'string',
+          enum: ['resumen_semanal_equipo', 'diagnostico_persona', 'comparar_equipo', 'resumen_ejecutivo', 'diagnostico_medio'],
+          description: 'Nombre de la receta a ejecutar',
+        },
+        persona_nombre: { type: 'string', description: 'Nombre de persona (requerido para diagnostico_persona)' },
+        periodo_dias: { type: 'number', description: 'Override del periodo de análisis en días (opcional)' },
+      },
+      required: ['receta'],
+    },
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Role-based tool sets
 // ---------------------------------------------------------------------------
@@ -590,7 +612,7 @@ const GERENTE_TOOLS: ToolDefinition[] = [
   TOOL_LISTAR_ARCHIVOS_DRIVE, TOOL_LEER_ARCHIVO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS, TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS, TOOL_ANALIZAR_TENDENCIAS, TOOL_RECOMENDAR_CROSSSELL,
-  TOOL_GENERAR_LINK_DASHBOARD,
+  TOOL_GENERAR_LINK_DASHBOARD, TOOL_EJECUTAR_SWARM,
 ];
 
 const DIRECTOR_TOOLS: ToolDefinition[] = [
@@ -602,7 +624,7 @@ const DIRECTOR_TOOLS: ToolDefinition[] = [
   TOOL_LISTAR_ARCHIVOS_DRIVE, TOOL_LEER_ARCHIVO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS, TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS, TOOL_ANALIZAR_TENDENCIAS, TOOL_RECOMENDAR_CROSSSELL,
-  TOOL_GENERAR_LINK_DASHBOARD,
+  TOOL_GENERAR_LINK_DASHBOARD, TOOL_EJECUTAR_SWARM,
 ];
 
 const VP_TOOLS: ToolDefinition[] = [
@@ -614,7 +636,7 @@ const VP_TOOLS: ToolDefinition[] = [
   TOOL_LISTAR_ARCHIVOS_DRIVE, TOOL_LEER_ARCHIVO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS, TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS, TOOL_ANALIZAR_TENDENCIAS, TOOL_RECOMENDAR_CROSSSELL,
-  TOOL_GENERAR_LINK_DASHBOARD,
+  TOOL_GENERAR_LINK_DASHBOARD, TOOL_EJECUTAR_SWARM,
 ];
 
 export function getToolsForRole(role: 'ae' | 'gerente' | 'director' | 'vp'): ToolDefinition[] {
@@ -661,6 +683,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   analizar_tendencias,
   recomendar_crosssell,
   generar_link_dashboard,
+  ejecutar_swarm,
 };
 
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {

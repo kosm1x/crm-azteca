@@ -52,9 +52,10 @@ export function getGmailReadClient(impersonateEmail: string) {
 
 /** Get an authenticated Calendar client impersonating the given email. */
 export function getCalendarClient(impersonateEmail: string) {
+  const key = getServiceAccountKey();
   const auth = new JWT({
-    email: getServiceAccountKey().client_email,
-    key: getServiceAccountKey().private_key,
+    email: key.client_email,
+    key: key.private_key,
     scopes: CALENDAR_SCOPES,
     subject: impersonateEmail,
   });

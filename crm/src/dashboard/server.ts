@@ -93,9 +93,16 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     return;
   }
 
-  // Token generation endpoint (requires persona_id query param, no auth)
+  // Token generation endpoint (requires persona_id query param, localhost only)
   // Intended for CLI use: curl http://localhost:3000/api/v1/token?persona_id=xxx
   if (pathname === '/api/v1/token') {
+    // Restrict to localhost connections for security
+    const remoteAddr = req.socket.remoteAddress || '';
+    const isLocal = remoteAddr === '127.0.0.1' || remoteAddr === '::1' || remoteAddr === '::ffff:127.0.0.1';
+    if (!isLocal) {
+      sendJson(res, 403, { error: 'Token endpoint is only accessible from localhost' });
+      return;
+    }
     const personaId = url.searchParams.get('persona_id');
     if (!personaId) {
       sendJson(res, 400, { error: 'Missing persona_id query parameter' });

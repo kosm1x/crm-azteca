@@ -42,7 +42,7 @@
           // Decode role from JWT to redirect to the right dashboard
           try {
             const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-            const rolePages = { vp: 'vp.html', director: 'director.html', gerente: 'manager.html', ae: 'manager.html' };
+            const rolePages = { vp: 'vp.html', director: 'director.html', gerente: 'manager.html', ae: 'ae.html' };
             const page = rolePages[payload.rol] || 'vp.html';
             window.location.href = `/dashboard/${page}?token=${encodeURIComponent(token)}`;
           } catch {

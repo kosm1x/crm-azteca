@@ -109,13 +109,14 @@ export async function confirmar_envio_email(args: Record<string, unknown>, ctx: 
     }
   }
 
-  // Priority 2: SMTP
+  // Priority 2: SMTP (stub — transport not implemented yet)
   if (isEmailEnabled()) {
-    const timestamp = now();
-    db.prepare('UPDATE email_log SET enviado = 1, fecha_enviado = ? WHERE id = ?').run(timestamp, emailId);
+    db.prepare('UPDATE email_log SET error = ? WHERE id = ?').run(
+      'SMTP transport not implemented — saved as draft', emailId,
+    );
     return JSON.stringify({
       ok: true,
-      mensaje: `Email enviado a ${email.destinatario}: "${email.asunto}"`,
+      mensaje: `Email guardado como borrador (SMTP configurado pero transporte no implementado). Destinatario: ${email.destinatario}`,
     });
   }
 
@@ -170,12 +171,13 @@ export async function enviar_email_briefing(args: Record<string, unknown>, ctx: 
     }
   }
 
-  // Priority 2: SMTP
+  // Priority 2: SMTP (stub — transport not implemented yet)
   if (isEmailEnabled()) {
-    const timestamp = now();
-    db.prepare('UPDATE email_log SET enviado = 1, fecha_enviado = ? WHERE id = ?').run(timestamp, id);
-    let mensaje = `Briefing enviado a ${destinatario}`;
-    if (incluirEquipo) mensaje += ' y equipo';
+    db.prepare('UPDATE email_log SET error = ? WHERE id = ?').run(
+      'SMTP transport not implemented — saved as draft', id,
+    );
+    let mensaje = `Briefing guardado como borrador (SMTP configurado pero transporte no implementado)`;
+    if (incluirEquipo) mensaje += ' (incluir equipo pendiente)';
     return JSON.stringify({ ok: true, email_id: id, mensaje });
   }
 

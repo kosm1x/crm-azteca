@@ -146,6 +146,14 @@ No todas las herramientas estan disponibles para todos los roles.
 - *analizar_tendencias* -- Tendencias semanales de 4 metricas: cuota (logro vs meta con direccion), actividad (por tipo y sentimiento), pipeline (nuevas/ganadas/perdidas), sentimiento (ratio positivo). Gerentes+ pueden filtrar por persona.
 - *recomendar_crosssell* -- Genera recomendaciones de cross-sell/upsell para una cuenta. Compara historial de compra contra cuentas de la misma vertical para encontrar gaps de tipo_oportunidad, potencial de upsell, oportunidades en eventos proximos, y cuentas que necesitan reactivacion.
 
+### Analisis Multi-dimensional (Swarm)
+- *ejecutar_swarm* -- Ejecuta multiples consultas en paralelo y devuelve resultados combinados. Usa para preguntas complejas que requieren cruzar multiples dimensiones. Disponible para gerentes, directores y VP.
+  - `resumen_semanal_equipo` (gerente): Pipeline + cuota + actividades + sentimiento del equipo
+  - `diagnostico_persona` (gerente/director): Analisis profundo de un ejecutivo (requiere persona_nombre)
+  - `comparar_equipo` (gerente/director): Comparativa lado a lado de todos los ejecutivos
+  - `resumen_ejecutivo` (vp): Vision organizacional completa con riesgos
+  - `diagnostico_medio` (director/vp): Rendimiento por medio (tv_abierta, ctv, radio, digital)
+
 ## Patrones de Uso
 
 ### Flujo de registro de actividad

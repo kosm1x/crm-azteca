@@ -7,35 +7,7 @@
 
 import { getDatabase } from '../db.js';
 import type { ToolContext } from './index.js';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function scopeFilter(ctx: ToolContext): { where: string; params: string[] } {
-  if (ctx.rol === 'vp') return { where: '', params: [] };
-  if (ctx.rol === 'director') {
-    const ids = [ctx.persona_id, ...ctx.full_team_ids];
-    return { where: `AND ae_id IN (${ids.map(() => '?').join(',')})`, params: ids };
-  }
-  if (ctx.rol === 'gerente') {
-    const ids = [ctx.persona_id, ...ctx.team_ids];
-    return { where: `AND ae_id IN (${ids.map(() => '?').join(',')})`, params: ids };
-  }
-  return { where: 'AND ae_id = ?', params: [ctx.persona_id] };
-}
-
-function findCuentaId(nombre: string): string | null {
-  const db = getDatabase();
-  const row = db.prepare('SELECT id FROM cuenta WHERE nombre LIKE ?').get(`%${nombre}%`) as any;
-  return row?.id ?? null;
-}
-
-function getCurrentWeek(): number {
-  const d = new Date();
-  const start = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(((d.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7);
-}
+import { scopeFilter, findCuentaId, getCurrentWeek } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // consultar_pipeline
@@ -43,9 +15,9 @@ function getCurrentWeek(): number {
 
 export function consultar_pipeline(args: Record<string, unknown>, ctx: ToolContext): string {
   const db = getDatabase();
-  const scope = scopeFilter(ctx);
+  const scope = scopeFilter(ctx, 'p.ae_id');
 
-  let where = 'WHERE 1=1 ' + scope.where.replace(/ae_id/g, 'p.ae_id');
+  let where = 'WHERE 1=1 ' + scope.where;
   const params: unknown[] = [...scope.params];
 
   if (args.etapa) {
@@ -114,13 +86,10 @@ export function consultar_descarga(args: Record<string, unknown>, ctx: ToolConte
   }
 
   // Scope: filter by accounts assigned to the person's team
-  if (ctx.rol === 'ae') {
-    where += ' AND c.ae_id = ?';
-    params.push(ctx.persona_id);
-  } else if (ctx.rol === 'gerente') {
-    const ids = [ctx.persona_id, ...ctx.team_ids];
-    where += ` AND c.ae_id IN (${ids.map(() => '?').join(',')})`;
-    params.push(...ids);
+  const descScope = scopeFilter(ctx, 'c.ae_id');
+  if (descScope.where) {
+    where += ' ' + descScope.where;
+    params.push(...descScope.params);
   }
 
   const rows = db.prepare(`
@@ -210,9 +179,12 @@ export function consultar_cuota(args: Record<string, unknown>, ctx: ToolContext)
 export function consultar_cuenta(args: Record<string, unknown>, ctx: ToolContext): string {
   const db = getDatabase();
   const nombre = args.cuenta_nombre as string;
-  const cuenta = db.prepare('SELECT * FROM cuenta WHERE nombre LIKE ?').get(`%${nombre}%`) as any;
+
+  // Role-based scope: verify the caller has access to this account
+  const scope = scopeFilter(ctx, 'c.ae_id');
+  const cuenta = db.prepare(`SELECT c.* FROM cuenta c WHERE c.nombre LIKE ? ${scope.where}`).get(`%${nombre}%`, ...scope.params) as any;
   if (!cuenta) {
-    return JSON.stringify({ error: `No encontré la cuenta "${nombre}".` });
+    return JSON.stringify({ error: `No encontré la cuenta "${nombre}" o no tienes acceso.` });
   }
 
   const contactos = db.prepare('SELECT nombre, rol, seniority, email, telefono FROM contacto WHERE cuenta_id = ?').all(cuenta.id) as any[];
@@ -256,7 +228,7 @@ export function consultar_cuenta(args: Record<string, unknown>, ctx: ToolContext
 export function consultar_actividades(args: Record<string, unknown>, ctx: ToolContext): string {
   const db = getDatabase();
   const limite = (args.limite as number) || 20;
-  const scope = scopeFilter(ctx);
+  const scope = scopeFilter(ctx, 'a.ae_id');
 
   let where = 'WHERE 1=1 ' + scope.where;
   const params: unknown[] = [...scope.params];

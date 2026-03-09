@@ -1,7 +1,7 @@
 # CRM Azteca — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-08 (post dashboard API D1)
+> Last updated: 2026-03-09 (agent swarm complete)
 
 ## Phase Tracker
 
@@ -13,14 +13,14 @@
 | 4 | Scale & Reliability | Done | Parallel tools, Docker optimizations, web search | 2026-03 |
 | 5 | Events & Inventory | Done | Event management, inventory tracking | 2026-03 |
 | 6 | Escalation & Alerts | Done | Alert system, management escalation chain | 2026-03 |
-| 7 | Intelligence Layer | Partial | RAG + doc search + sqlite-vec + historical analysis + cross-sell done. Missing: agent swarm | 2026-03 |
+| 7 | Intelligence Layer | Done | RAG + sqlite-vec + historical analysis + cross-sell + agent swarm (5 parallel recipes) | 2026-03 |
 | 8 | Workspace Abstraction | Planned | Google + Microsoft unified API. Blocked on Azure AD app registration | — |
 
 ## Available Now (zero external blockers)
 
 1. ~~**Historical analysis tools**~~ — Done (analizar_winloss, analizar_tendencias)
 3. ~~**Cross-sell recommendations**~~ — Done (recomendar_crosssell)
-4. **Agent swarm** — multi-agent coordination for complex workflows
+4. ~~**Agent swarm**~~ — Done (ejecutar_swarm with 5 parallel recipes: resumen_semanal_equipo, diagnostico_persona, comparar_equipo, resumen_ejecutivo, diagnostico_medio)
 5. ~~**Dashboard UI**~~ — Done (D1-D3: API + auth + 6 endpoints + VP/Director/Manager dashboards + login routing)
 
 ## Blocked
@@ -48,10 +48,10 @@
 
 | Metric | Count |
 |--------|-------|
-| CRM tools | 29 |
-| SQLite tables | 16 |
-| Test files | 82 |
-| Tests passing | 425 CRM + 640 engine = 1065+ |
+| CRM tools | 31 |
+| SQLite tables | 17 |
+| Test files | 22 |
+| Tests passing | 481 CRM + 640 engine = 1121+ |
 | Persona templates | 8 |
 | Active groups | 4 |
 | Seed: personas | 20 |

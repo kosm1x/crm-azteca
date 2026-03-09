@@ -9,29 +9,7 @@
 
 import { getDatabase } from '../db.js';
 import type { ToolContext } from './index.js';
-
-// ---------------------------------------------------------------------------
-// Helpers (replicated from consulta.ts — private there)
-// ---------------------------------------------------------------------------
-
-function scopeFilter(ctx: ToolContext): { where: string; params: string[] } {
-  if (ctx.rol === 'vp') return { where: '', params: [] };
-  if (ctx.rol === 'director') {
-    const ids = [ctx.persona_id, ...ctx.full_team_ids];
-    return { where: `AND ae_id IN (${ids.map(() => '?').join(',')})`, params: ids };
-  }
-  if (ctx.rol === 'gerente') {
-    const ids = [ctx.persona_id, ...ctx.team_ids];
-    return { where: `AND ae_id IN (${ids.map(() => '?').join(',')})`, params: ids };
-  }
-  return { where: 'AND ae_id = ?', params: [ctx.persona_id] };
-}
-
-function findCuentaId(nombre: string): string | null {
-  const db = getDatabase();
-  const row = db.prepare('SELECT id FROM cuenta WHERE nombre LIKE ?').get(`%${nombre}%`) as any;
-  return row?.id ?? null;
-}
+import { scopeFilter, findCuentaId, getCurrentWeek, personaIdFromName, dateCutoff } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // analizar_winloss
@@ -44,12 +22,13 @@ export function analizar_winloss(args: Record<string, unknown>, ctx: ToolContext
   const cuentaNombre = args.cuenta_nombre as string | undefined;
   const soloMega = args.solo_mega as boolean | undefined;
 
-  const scope = scopeFilter(ctx);
+  const scope = scopeFilter(ctx, 'p.ae_id');
 
   let where = `WHERE p.etapa IN ('completada','perdida','cancelada')
-    AND p.fecha_ultima_actividad >= datetime('now', '-${periodoDias} days')
+    AND p.fecha_ultima_actividad >= ?
     ${scope.where}`;
-  const params: unknown[] = [...scope.params];
+  const cutoff = dateCutoff(periodoDias);
+  const params: unknown[] = [cutoff, ...scope.params];
 
   if (cuentaNombre) {
     const cid = findCuentaId(cuentaNombre);
@@ -185,12 +164,6 @@ export function analizar_tendencias(args: Record<string, unknown>, ctx: ToolCont
 // Trend sub-queries
 // ---------------------------------------------------------------------------
 
-function personaIdFromName(nombre: string): string | null {
-  const db = getDatabase();
-  const row = db.prepare('SELECT id FROM persona WHERE nombre LIKE ?').get(`%${nombre}%`) as any;
-  return row?.id ?? null;
-}
-
 function cuotaScopeFilter(ctx: ToolContext, personaNombre?: string): { where: string; params: unknown[] } {
   // If a specific person is requested (for managers+)
   if (personaNombre && ctx.rol !== 'ae') {
@@ -220,11 +193,7 @@ function activityScopeFilter(ctx: ToolContext, personaNombre?: string): { where:
     }
   }
 
-  const scope = scopeFilter(ctx);
-  return {
-    where: scope.where.replace(/ae_id/g, 'a.ae_id'),
-    params: scope.params,
-  };
+  return scopeFilter(ctx, 'a.ae_id');
 }
 
 function proposalScopeFilter(ctx: ToolContext, personaNombre?: string): { where: string; params: unknown[] } {
@@ -235,11 +204,7 @@ function proposalScopeFilter(ctx: ToolContext, personaNombre?: string): { where:
     }
   }
 
-  const scope = scopeFilter(ctx);
-  return {
-    where: scope.where.replace(/ae_id/g, 'p.ae_id'),
-    params: scope.params,
-  };
+  return scopeFilter(ctx, 'p.ae_id');
 }
 
 function tendenciaCuota(
@@ -301,6 +266,7 @@ function tendenciaActividad(
   personaNombre?: string,
 ): string {
   const scope = activityScopeFilter(ctx, personaNombre);
+  const cutoff = dateCutoff(periodoSemanas * 7);
 
   const rows = db.prepare(`
     SELECT
@@ -310,11 +276,11 @@ function tendenciaActividad(
       a.tipo,
       a.sentimiento
     FROM actividad a
-    WHERE a.fecha >= datetime('now', '-${periodoSemanas * 7} days')
+    WHERE a.fecha >= ?
       ${scope.where}
     GROUP BY año, semana, a.tipo, a.sentimiento
     ORDER BY año, semana
-  `).all(...scope.params) as any[];
+  `).all(cutoff, ...scope.params) as any[];
 
   // Aggregate into weekly buckets
   const weekMap = new Map<string, {
@@ -355,6 +321,8 @@ function tendenciaPipeline(
 ): string {
   const scope = proposalScopeFilter(ctx, personaNombre);
 
+  const cutoff = dateCutoff(periodoSemanas * 7);
+
   // New proposals per week
   const nuevasRows = db.prepare(`
     SELECT
@@ -363,11 +331,11 @@ function tendenciaPipeline(
       COUNT(*) AS nuevas,
       SUM(p.valor_estimado) AS valor_nuevo
     FROM propuesta p
-    WHERE p.fecha_creacion >= datetime('now', '-${periodoSemanas * 7} days')
+    WHERE p.fecha_creacion >= ?
       ${scope.where}
     GROUP BY año, semana
     ORDER BY año, semana
-  `).all(...scope.params) as any[];
+  `).all(cutoff, ...scope.params) as any[];
 
   // Won/lost per week (by fecha_ultima_actividad for closed ones)
   const cerradasRows = db.prepare(`
@@ -379,11 +347,11 @@ function tendenciaPipeline(
       SUM(CASE WHEN p.etapa = 'completada' THEN p.valor_estimado ELSE 0 END) AS valor_ganado
     FROM propuesta p
     WHERE p.etapa IN ('completada','perdida','cancelada')
-      AND p.fecha_ultima_actividad >= datetime('now', '-${periodoSemanas * 7} days')
+      AND p.fecha_ultima_actividad >= ?
       ${scope.where}
     GROUP BY año, semana
     ORDER BY año, semana
-  `).all(...scope.params) as any[];
+  `).all(cutoff, ...scope.params) as any[];
 
   // Merge into weekly view
   const weekMap = new Map<string, {
@@ -438,6 +406,8 @@ function tendenciaSentimiento(
 ): string {
   const scope = activityScopeFilter(ctx, personaNombre);
 
+  const cutoff = dateCutoff(periodoSemanas * 7);
+
   const rows = db.prepare(`
     SELECT
       CAST(strftime('%W', a.fecha) AS INTEGER) AS semana,
@@ -445,12 +415,12 @@ function tendenciaSentimiento(
       a.sentimiento,
       COUNT(*) AS conteo
     FROM actividad a
-    WHERE a.fecha >= datetime('now', '-${periodoSemanas * 7} days')
+    WHERE a.fecha >= ?
       AND a.sentimiento IS NOT NULL
       ${scope.where}
     GROUP BY año, semana, a.sentimiento
     ORDER BY año, semana
-  `).all(...scope.params) as any[];
+  `).all(cutoff, ...scope.params) as any[];
 
   const weekMap = new Map<string, {
     semana: number; año: number;
@@ -489,12 +459,3 @@ function tendenciaSentimiento(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Helper (same as consulta.ts)
-// ---------------------------------------------------------------------------
-
-function getCurrentWeek(): number {
-  const d = new Date();
-  const start = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(((d.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7);
-}

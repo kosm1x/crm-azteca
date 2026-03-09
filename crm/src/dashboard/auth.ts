@@ -9,7 +9,11 @@ import crypto from 'crypto';
 import { getPersonById, getTeamIds, getFullTeamIds } from '../hierarchy.js';
 import type { ToolContext } from '../tools/index.js';
 
-const SECRET = process.env.DASHBOARD_JWT_SECRET || 'crm-dashboard-dev-secret';
+const SECRET = process.env.DASHBOARD_JWT_SECRET || (
+  process.env.NODE_ENV === 'production'
+    ? (() => { throw new Error('DASHBOARD_JWT_SECRET must be set in production'); })()
+    : 'crm-dashboard-dev-secret'
+);
 const TOKEN_EXPIRY_DAYS = 30;
 
 // ---------------------------------------------------------------------------

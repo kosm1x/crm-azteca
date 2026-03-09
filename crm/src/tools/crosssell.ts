@@ -14,23 +14,7 @@
 
 import { getDatabase } from '../db.js';
 import type { ToolContext } from './index.js';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function scopeFilter(ctx: ToolContext): { where: string; params: string[] } {
-  if (ctx.rol === 'vp') return { where: '', params: [] };
-  if (ctx.rol === 'director') {
-    const ids = [ctx.persona_id, ...ctx.full_team_ids];
-    return { where: `AND c.ae_id IN (${ids.map(() => '?').join(',')})`, params: ids };
-  }
-  if (ctx.rol === 'gerente') {
-    const ids = [ctx.persona_id, ...ctx.team_ids];
-    return { where: `AND c.ae_id IN (${ids.map(() => '?').join(',')})`, params: ids };
-  }
-  return { where: 'AND c.ae_id = ?', params: [ctx.persona_id] };
-}
+import { scopeFilter } from './helpers.js';
 
 interface Recommendation {
   tipo: 'tipo_oportunidad' | 'valor_upsell' | 'evento' | 'reactivacion';
@@ -54,7 +38,7 @@ export function recomendar_crosssell(args: Record<string, unknown>, ctx: ToolCon
   }
 
   // Verify scope access
-  const scope = scopeFilter(ctx);
+  const scope = scopeFilter(ctx, 'c.ae_id');
   const cuenta = db.prepare(`
     SELECT c.id, c.nombre, c.vertical, c.tipo, c.ae_id, c.años_relacion, c.es_fundador
     FROM cuenta c

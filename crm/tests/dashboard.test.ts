@@ -353,8 +353,9 @@ describe('GET /api/v1/alertas', () => {
     const result = getAlertas({}, ctx) as any;
     expect(result.total).toBeGreaterThanOrEqual(1);
     for (const a of result.alertas) {
-      expect(a.grupo_destino).toBe('ae-001-folder');
       expect(a.tipo).toBeDefined();
+      expect(a.entidad).toBeDefined();
+      expect(a.fecha).toBeDefined();
     }
   });
 });
