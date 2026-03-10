@@ -209,7 +209,8 @@ export class WhatsAppChannel implements Channel {
         const group = groups[chatJid];
         if (group) {
           // Normalize viewOnce/ephemeral/edited message wrappers
-          const normalized = normalizeMessageContent(msg.message) || msg.message;
+          const normalized =
+            normalizeMessageContent(msg.message) || msg.message;
           let content =
             normalized?.conversation ||
             normalized?.extendedTextMessage?.text ||
@@ -223,10 +224,94 @@ export class WhatsAppChannel implements Channel {
               const groupDir = path.join(GROUPS_DIR, group.folder);
               const buffer = await downloadMediaMessage(msg, 'buffer', {});
               const caption = normalized.imageMessage.caption || '';
-              const result = await processImage(buffer as Buffer, groupDir, caption);
+              const result = await processImage(
+                buffer as Buffer,
+                groupDir,
+                caption,
+              );
               if (result) content = result.content;
             } catch (err) {
               logger.warn({ err, chatJid }, 'Failed to download/process image');
+            }
+          }
+
+          // Download and transcribe audio/voice messages
+          if (normalized?.audioMessage) {
+            try {
+              const groupDir = path.join(GROUPS_DIR, group.folder);
+              const attachDir = path.join(groupDir, 'attachments');
+              fs.mkdirSync(attachDir, { recursive: true });
+              const buffer = await downloadMediaMessage(msg, 'buffer', {});
+              const mimetype = normalized.audioMessage.mimetype || 'audio/ogg';
+              const ext = mimetype.split('/')[1] || 'ogg';
+              const duration = normalized.audioMessage.seconds || 0;
+              const filename = `audio-${Date.now()}.${ext}`;
+              const filePath = path.join(attachDir, filename);
+              fs.writeFileSync(filePath, buffer as Buffer);
+              const sizeKB = Math.round((buffer as Buffer).length / 1024);
+
+              // Transcribe using Whisper provider (imported dynamically to avoid
+              // hard dependency when transcription is not configured)
+              let transcription = '';
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const transcriptionMod: any = await import(
+                  '../../crm/src/transcription.js' as any
+                );
+                const transcribe = transcriptionMod.transcribe as (
+                  f: string,
+                  u: string,
+                  k: string,
+                  m?: string,
+                ) => Promise<{ text: string; confidence: number }>;
+                const { readEnvFile } = await import('../env.js');
+                const env = readEnvFile([
+                  'WHISPER_API_URL',
+                  'WHISPER_API_KEY',
+                  'WHISPER_MODEL',
+                ]);
+                if (env.WHISPER_API_URL && env.WHISPER_API_KEY) {
+                  const result = await transcribe(
+                    filePath,
+                    env.WHISPER_API_URL,
+                    env.WHISPER_API_KEY,
+                    env.WHISPER_MODEL || 'whisper-1',
+                  );
+                  transcription = result.text;
+                } else {
+                  logger.warn(
+                    'WHISPER_API_URL/KEY not configured, skipping transcription',
+                  );
+                }
+              } catch (transcErr) {
+                logger.warn(
+                  { err: transcErr, filename },
+                  'Audio transcription failed',
+                );
+              }
+
+              if (transcription) {
+                const header = `[Audio: ${filename} (${sizeKB}KB, ${duration}s)]`;
+                const caption = content || '';
+                content = caption
+                  ? `${caption}\n\n${header}\n\nTranscripcion:\n${transcription}`
+                  : `${header}\n\nTranscripcion:\n${transcription}`;
+              } else {
+                const header = `[Audio: ${filename} (${sizeKB}KB, ${duration}s) — no se pudo transcribir]`;
+                content = content ? `${content}\n\n${header}` : header;
+              }
+              logger.info(
+                {
+                  jid: chatJid,
+                  filename,
+                  sizeKB,
+                  duration,
+                  transcribed: !!transcription,
+                },
+                'Downloaded audio attachment',
+              );
+            } catch (err) {
+              logger.warn({ err, chatJid }, 'Failed to download/process audio');
             }
           }
 
@@ -238,8 +323,7 @@ export class WhatsAppChannel implements Channel {
               const attachDir = path.join(groupDir, 'attachments');
               fs.mkdirSync(attachDir, { recursive: true });
               const filename = path.basename(
-                normalized.documentMessage.fileName ||
-                `doc-${Date.now()}.pdf`,
+                normalized.documentMessage.fileName || `doc-${Date.now()}.pdf`,
               );
               const filePath = path.join(attachDir, filename);
               fs.writeFileSync(filePath, buffer as Buffer);
@@ -248,21 +332,32 @@ export class WhatsAppChannel implements Channel {
               // Extract text inline so the agent can read it directly
               let pdfText = '';
               try {
-                const { stdout } = await execFileAsync('pdftotext', ['-layout', filePath, '-'], {
-                  timeout: 15000,
-                  maxBuffer: 512 * 1024,
-                });
+                const { stdout } = await execFileAsync(
+                  'pdftotext',
+                  ['-layout', filePath, '-'],
+                  {
+                    timeout: 15000,
+                    maxBuffer: 512 * 1024,
+                  },
+                );
                 pdfText = stdout.trim();
               } catch (extractErr) {
-                logger.warn({ err: extractErr, filename }, 'pdftotext extraction failed');
+                logger.warn(
+                  { err: extractErr, filename },
+                  'pdftotext extraction failed',
+                );
               }
 
               const caption = normalized.documentMessage.caption || '';
               if (pdfText) {
                 // Truncate to ~8K chars to avoid blowing up context
-                const truncated = pdfText.length > 8000
-                  ? pdfText.slice(0, 8000) + '\n... [truncado, documento completo: ' + sizeKB + 'KB]'
-                  : pdfText;
+                const truncated =
+                  pdfText.length > 8000
+                    ? pdfText.slice(0, 8000) +
+                      '\n... [truncado, documento completo: ' +
+                      sizeKB +
+                      'KB]'
+                    : pdfText;
                 const header = `[PDF: ${filename} (${sizeKB}KB)]`;
                 content = caption
                   ? `${caption}\n\n${header}\n${truncated}`
@@ -272,9 +367,15 @@ export class WhatsAppChannel implements Channel {
                   ? `${caption}\n\n[PDF adjunto: ${filename} (${sizeKB}KB) — no se pudo extraer texto]`
                   : `[PDF adjunto: ${filename} (${sizeKB}KB) — no se pudo extraer texto]`;
               }
-              logger.info({ jid: chatJid, filename, textLen: pdfText.length }, 'Downloaded PDF attachment');
+              logger.info(
+                { jid: chatJid, filename, textLen: pdfText.length },
+                'Downloaded PDF attachment',
+              );
             } catch (err) {
-              logger.warn({ err, jid: chatJid }, 'Failed to download PDF attachment');
+              logger.warn(
+                { err, jid: chatJid },
+                'Failed to download PDF attachment',
+              );
             }
           }
 

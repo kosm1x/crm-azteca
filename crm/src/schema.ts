@@ -22,16 +22,28 @@
  *   - crm_embeddings: Document chunk embeddings for RAG search
  */
 
-import type Database from 'better-sqlite3';
+import type Database from "better-sqlite3";
 
 export const CRM_TABLES = [
-  'persona', 'cuenta', 'contacto', 'contrato', 'descarga',
-  'propuesta', 'actividad', 'cuota', 'inventario',
-  'alerta_log', 'email_log', 'evento_calendario',
-  'crm_events', 'crm_documents', 'crm_embeddings', 'crm_vec_embeddings',
+  "persona",
+  "cuenta",
+  "contacto",
+  "contrato",
+  "descarga",
+  "propuesta",
+  "actividad",
+  "cuota",
+  "inventario",
+  "alerta_log",
+  "email_log",
+  "evento_calendario",
+  "crm_events",
+  "crm_documents",
+  "crm_embeddings",
+  "crm_vec_embeddings",
 ] as const;
 
-export type CrmTableName = typeof CRM_TABLES[number];
+export type CrmTableName = (typeof CRM_TABLES)[number];
 
 export function createCrmSchema(db: Database.Database): void {
   db.exec(`
@@ -174,7 +186,33 @@ export function createCrmSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_actividad_ae ON actividad(ae_id);
     CREATE INDEX IF NOT EXISTS idx_actividad_propuesta ON actividad(propuesta_id);
     CREATE INDEX IF NOT EXISTS idx_actividad_fecha ON actividad(fecha);
+    CREATE INDEX IF NOT EXISTS idx_actividad_sentimiento ON actividad(sentimiento);
+  `);
 
+  // -- Phase 8: Additive migrations on actividad --
+  // SQLite doesn't support ALTER CHECK or ADD COLUMN IF NOT EXISTS,
+  // so we guard each ALTER with a pragma check.
+  const activCols = db.prepare("PRAGMA table_info(actividad)").all() as {
+    name: string;
+  }[];
+  const colNames = new Set(activCols.map((c) => c.name));
+
+  if (!colNames.has("audio_ref")) {
+    db.exec("ALTER TABLE actividad ADD COLUMN audio_ref TEXT");
+  }
+  if (!colNames.has("transcripcion")) {
+    db.exec("ALTER TABLE actividad ADD COLUMN transcripcion TEXT");
+  }
+  if (!colNames.has("sentimiento_score")) {
+    db.exec("ALTER TABLE actividad ADD COLUMN sentimiento_score REAL");
+  }
+  if (!colNames.has("tipo_mensaje")) {
+    db.exec(
+      "ALTER TABLE actividad ADD COLUMN tipo_mensaje TEXT DEFAULT 'texto'",
+    );
+  }
+
+  db.exec(`
     -- 8. CUOTA (Weekly quotas)
     CREATE TABLE IF NOT EXISTS cuota (
       id TEXT PRIMARY KEY,

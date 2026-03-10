@@ -19,7 +19,8 @@ import { readEnvFile } from './env.js';
 
 // CRM hook: read CONTAINER_IMAGE from .env directly so it always overrides the
 // nanoclaw default regardless of whether process.env was pre-populated.
-const { CONTAINER_IMAGE: CONTAINER_IMAGE_ENV, DASHBOARD_BASE_URL } = readEnvFile(['CONTAINER_IMAGE', 'DASHBOARD_BASE_URL']);
+const { CONTAINER_IMAGE: CONTAINER_IMAGE_ENV, DASHBOARD_BASE_URL } =
+  readEnvFile(['CONTAINER_IMAGE', 'DASHBOARD_BASE_URL']);
 const CONTAINER_IMAGE = CONTAINER_IMAGE_ENV || CONTAINER_IMAGE_DEFAULT;
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
 import { logger } from './logger.js';
@@ -205,7 +206,13 @@ function buildVolumeMounts(
   });
 
   // CRM hook: Mount CRM document store (read-only) for agent document access
-  const crmDocsDir = path.join(GROUPS_DIR, '..', 'store', 'documents', group.folder);
+  const crmDocsDir = path.join(
+    GROUPS_DIR,
+    '..',
+    'store',
+    'documents',
+    group.folder,
+  );
   if (fs.existsSync(crmDocsDir)) {
     mounts.push({
       hostPath: crmDocsDir,
@@ -218,7 +225,11 @@ function buildVolumeMounts(
   // Uses DATA_DIR/store (data/store/) which houses crm.db — kept separate from
   // store/messages.db (engine's WAL db) to avoid SQLITE_IOERR_SHMOPEN on Docker
   // bind mounts when both the engine process and the container open the same file.
-  mounts.push({ hostPath: path.join(DATA_DIR, 'store'), containerPath: '/workspace/extra/crm-db', readonly: false });
+  mounts.push({
+    hostPath: path.join(DATA_DIR, 'store'),
+    containerPath: '/workspace/extra/crm-db',
+    readonly: false,
+  });
 
   // Additional mounts validated against external allowlist (tamper-proof from containers)
   if (group.containerConfig?.additionalMounts) {
@@ -239,11 +250,19 @@ function buildVolumeMounts(
  */
 function readSecrets(): Record<string, string> {
   return readEnvFile([
-    'CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY',
-    'INFERENCE_PRIMARY_URL', 'INFERENCE_PRIMARY_KEY', 'INFERENCE_PRIMARY_MODEL',
-    'INFERENCE_FALLBACK_URL', 'INFERENCE_FALLBACK_KEY', 'INFERENCE_FALLBACK_MODEL',
+    'CLAUDE_CODE_OAUTH_TOKEN',
+    'ANTHROPIC_API_KEY',
+    'INFERENCE_PRIMARY_URL',
+    'INFERENCE_PRIMARY_KEY',
+    'INFERENCE_PRIMARY_MODEL',
+    'INFERENCE_FALLBACK_URL',
+    'INFERENCE_FALLBACK_KEY',
+    'INFERENCE_FALLBACK_MODEL',
     'BRAVE_SEARCH_API_KEY',
     'BITLY_API_TOKEN',
+    'WHISPER_API_URL',
+    'WHISPER_API_KEY',
+    'WHISPER_MODEL',
   ]);
 }
 
