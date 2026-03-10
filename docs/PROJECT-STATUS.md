@@ -244,8 +244,8 @@ These rules hold across ALL phases:
 
 | Commit | Description |
 |--------|-------------|
-| (pending) | feat: Phase 8 Session 6 — VP glance dashboard (vp-glance API, glance.html, 543 tests) |
-| `TBD` | feat: Phase 8 Session 5 — enhanced briefings (generar_briefing, 34 tools, 524 tests) |
+| `83a1226` | feat: Phase 8 Session 6 — VP glance dashboard (vp-glance API, glance.html, 543 tests) |
+| `c531662` | feat: Phase 8 Session 5 — enhanced briefings (generar_briefing, 34 tools, 524 tests) |
 | `144c492` | feat: Phase 8 Session 4 — confidence calibration (dataFreshness, 505 tests) |
 | `f7ab07e` | feat: Phase 8 Session 3 — sentiment extraction pipeline (33 tools, 490 tests) |
 | `a91a843` | feat: add daily activity seeder and update Phase 8 status docs |
