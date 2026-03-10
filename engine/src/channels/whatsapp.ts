@@ -243,7 +243,9 @@ export class WhatsAppChannel implements Channel {
               fs.mkdirSync(attachDir, { recursive: true });
               const buffer = await downloadMediaMessage(msg, 'buffer', {});
               const mimetype = normalized.audioMessage.mimetype || 'audio/ogg';
-              const ext = mimetype.split('/')[1] || 'ogg';
+              const ext = (mimetype.split('/')[1] || 'ogg')
+                .split(';')[0]
+                .trim();
               const duration = normalized.audioMessage.seconds || 0;
               const filename = `audio-${Date.now()}.${ext}`;
               const filePath = path.join(attachDir, filename);
@@ -256,7 +258,7 @@ export class WhatsAppChannel implements Channel {
               try {
                 // eslint-disable-next-line @typescript-eslint/no-var-requires
                 const transcriptionMod: any = await import(
-                  '../../crm/src/transcription.js' as any
+                  '../../../crm/src/transcription.js' as any
                 );
                 const transcribe = transcriptionMod.transcribe as (
                   f: string,
