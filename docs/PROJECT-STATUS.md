@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-10 (Phase 8 Sessions 1-6 complete)
+> Last updated: 2026-03-14 (Hindsight adaptations complete)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`
 
 ## Phase Tracker
@@ -23,6 +23,7 @@
 | # | Phase | Status | Summary | Sessions | Weeks |
 |---|-------|--------|---------|----------|-------|
 | 8 | Exoskeleton Core | **Done** | Voice pipeline, EOD wrap-up, sentiment, confidence calibration, enhanced briefings, VP glance dashboard | 1–6 | 1–4 |
+| — | Hindsight Adaptations | **Done** | Circuit breaker (inference + embedding), Hindsight long-term memory (3 banks, 3 tools), hybrid RAG (FTS5 + reciprocal rank fusion) | — | — |
 | 9 | Relationship Intelligence | Planned | Executive relationship tracking (3 new tables), warmth scoring, milestone alerts, contact opportunities | 7–10 | 5–8 |
 | 10 | Workspace Abstraction | Planned | Provider interface + Google refactor (Phase A now). Microsoft 365 via MS Graph (Phase B when Azure AD ready) | 10.A–10.C | 7–9 |
 | 11 | Creative Intelligence | Planned | Overnight analysis → autonomous proposal drafts, package builder, cross-agent pattern detection | 11–13 | 9–14 |
@@ -50,6 +51,25 @@
 **New API endpoints:** +1 (`/api/v1/vp-glance`) — 7 total
 **New dashboard pages:** +1 (`glance.html`) — VP mobile glance view
 **New tests:** +78 so far (543 CRM tests passing)
+
+---
+
+## Hindsight Adaptations (2026-03-14) — Cross-cutting improvements
+
+> Goal: Port resilience, memory, and retrieval patterns from mission-control's Hindsight integration (v2.8)
+
+| Deliverable | Description | Status |
+|-------------|-------------|--------|
+| Circuit breaker | Reusable `CircuitBreaker` class (3 failures → 60s cooldown → half-open). Per-provider breaker in `inference-adapter.ts` (skips open Dashscope, falls to MiniMax). Module-level breaker in `embedding.ts` (fast-forwards to local trigram fallback) | **Done** |
+| Hindsight sidecar | `HindsightClient` HTTP wrapper, `HindsightMemoryBackend` with circuit breaker + lazy bank creation, `SqliteMemoryBackend` fallback, singleton factory. Docker sidecar managed via `crm-ctl hindsight-*`. Container networking via `--add-host` | **Done** |
+| Agent memory tools | 3 new tools: `guardar_observacion`, `buscar_memoria`, `reflexionar_memoria`. 3 CRM-specific memory banks: `crm-sales` (patterns, objections, client preferences), `crm-accounts` (relationship history, stakeholder preferences), `crm-team` (coaching, performance patterns). ACI-quality descriptions in Spanish | **Done** |
+| Hybrid RAG | FTS5 virtual table (`unicode61 remove_diacritics 2` tokenizer for Spanish) alongside sqlite-vec KNN. `searchDocumentsKeyword()` with query sanitization. `reciprocalRankFusion()` (k=60, ported from Hindsight). `searchDocuments()` runs both strategies in parallel, fuses via RRF. Graceful degradation: FTS5 compensates when embedding API circuit breaker is open | **Done** |
+
+**Schema changes:** +2 tables (`crm_memories`, `crm_fts_embeddings`) — 18 total
+**New tools:** +3 (guardar_observacion, buscar_memoria, reflexionar_memoria) — 37 total
+**New tests:** +35 (578 CRM tests passing, 27 test files)
+**New files:** 10 (circuit-breaker, 5 memory service, memoria tools, 3 test files)
+**Modified files:** 17 (inference-adapter, embedding, schema, doc-sync, tools/index, bootstrap, container-runner, agent-runner, crm-ctl, 5 group templates, 3 test files)
 
 ---
 
@@ -157,14 +177,14 @@
 
 ## Cumulative Evolution
 
-| Metric | Phase 8 (Now) | Phase 14 (Target) | Delta |
-|--------|---------------|-------------------|-------|
-| SQLite tables | 17 | 23 | +6 |
-| CRM tools | 34 | ~55 | +21 |
-| Test files | 24 | ~35 | +11 |
-| Tests passing | 543 | 900+ | +357 |
+| Metric | Post-Hindsight (Now) | Phase 14 (Target) | Remaining |
+|--------|---------------------|-------------------|-----------|
+| SQLite tables | 18 | 23 | +5 |
+| CRM tools | 37 | ~55 | +18 |
+| Test files | 27 | ~35 | +8 |
+| Tests passing | 578 | 900+ | +322 |
 | Persona templates | 8 | 8 (dynamic) | — |
-| Claude Code sessions | — | 26 | — |
+| Claude Code sessions | 7 | 26 | 19 |
 | Estimated hours | — | 65–85h | — |
 
 ### New Tables by Phase
@@ -184,7 +204,7 @@
 
 | Adoption Phase (VISION.md) | Technical Phases | What Users Get |
 |---------------------------|-----------------|----------------|
-| **Pilot (Months 1–3)** | 8 complete, 9 started | Voice input, smart briefings, EOD wrap-ups, sentiment, confidence calibration, VP dashboard |
+| **Pilot (Months 1–3)** | 8 + Hindsight complete, 9 next | Voice input, smart briefings, EOD wrap-ups, sentiment, confidence calibration, VP dashboard, long-term agent memory, hybrid RAG |
 | **Evangelists (Months 3–6)** | 9–11 complete, 12 in progress | Relationship intelligence, overnight proposals, creative packages, cross-agent patterns |
 | **Standard (Months 6–9)** | 10, 12–13 complete | Full data integration, workspace abstraction, action layer, approval flow, API foundation |
 | **Ecosystem (Months 9–12+)** | 14 complete | Adaptive personality, self-hosted LLM, production hardening, A2A readiness |
@@ -226,6 +246,7 @@ These rules hold across ALL phases:
 | Google Workspace | Active | Email, Calendar, Drive |
 | WhatsApp (Baileys) | Active | Main risk — unofficial API |
 | Whisper (transcription) | **Active** | Groq `whisper-large-v3` configured |
+| Hindsight | **Available** | Long-term memory sidecar. `crm-ctl hindsight-start` to activate |
 | Azure AD | Not started | Needed for Phase 10.C |
 
 ---
@@ -235,6 +256,7 @@ These rules hold across ALL phases:
 - **Server**: Test VPS, Node 22.22.0, Docker 29.3.0
 - **Service**: `agentic-crm.service` (systemd), managed via `crm-ctl`
 - **Container**: `agentic-crm-agent:latest` (rebuilt 2026-03-08)
+- **Hindsight**: `crm-hindsight` Docker sidecar (port 8888 API, 9999 UI), persistent volume at `data/hindsight/`
 - **WhatsApp**: Authenticated (5215530331051)
 - **Dashboard**: Port 3000 open (UFW), short links via Bitly
 
@@ -244,6 +266,8 @@ These rules hold across ALL phases:
 
 | Commit | Description |
 |--------|-------------|
+| `b752b85` | feat: Hindsight adaptations — circuit breaker, long-term memory, hybrid RAG (18 tables, 37 tools, 578 tests) |
+| `63cf2e3` | fix: voice transcription — wrong import path + bad extension parsing |
 | `83a1226` | feat: Phase 8 Session 6 — VP glance dashboard (vp-glance API, glance.html, 543 tests) |
 | `c531662` | feat: Phase 8 Session 5 — enhanced briefings (generar_briefing, 34 tools, 524 tests) |
 | `144c492` | feat: Phase 8 Session 4 — confidence calibration (dataFreshness, 505 tests) |
