@@ -286,6 +286,25 @@ function buildSystemPrompt(groupFolder: string, persona: Persona): string {
     parts.push(fs.readFileSync(groupPath, "utf-8"));
   }
 
+  // Current date/time in Mexico City timezone
+  const mxNow = new Date();
+  const mxDate = mxNow.toLocaleDateString("es-MX", {
+    timeZone: "America/Mexico_City",
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const mxTime = mxNow.toLocaleTimeString("es-MX", {
+    timeZone: "America/Mexico_City",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+  parts.push(
+    `\n## Fecha y Hora Actual\n${mxDate}, ${mxTime} (Ciudad de Mexico)`,
+  );
+
   // Identity injection
   parts.push(
     `\n## Tu Identidad\nNombre: ${persona.nombre}\nRol: ${persona.rol}\nGrupo: ${groupFolder}`,
