@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-14 (Hindsight adaptations complete)
+> Last updated: 2026-03-15 (Phase 9 complete)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`
 
 ## Phase Tracker
@@ -24,7 +24,7 @@
 |---|-------|--------|---------|----------|-------|
 | 8 | Exoskeleton Core | **Done** | Voice pipeline, EOD wrap-up, sentiment, confidence calibration, enhanced briefings, VP glance dashboard | 1–6 | 1–4 |
 | — | Hindsight Adaptations | **Done** | Circuit breaker (inference + embedding), Hindsight long-term memory (3 banks, 3 tools), hybrid RAG (FTS5 + reciprocal rank fusion) | — | — |
-| 9 | Relationship Intelligence | Planned | Executive relationship tracking (3 new tables), warmth scoring, milestone alerts, contact opportunities | 7–10 | 5–8 |
+| 9 | Relationship Intelligence | **Done** | 3 tables, 6 contacto columns, 7 Dir/VP tools, warmth engine, briefing integration, nightly recomputation | 7–10 | 5–8 |
 | 10 | Workspace Abstraction | Planned | Provider interface + Google refactor (Phase A now). Microsoft 365 via MS Graph (Phase B when Azure AD ready) | 10.A–10.C | 7–9 |
 | 11 | Creative Intelligence | Planned | Overnight analysis → autonomous proposal drafts, package builder, cross-agent pattern detection | 11–13 | 9–14 |
 | 12 | Data Connectors | Planned | Cubo, inventory, contracts, programming schedule, SharePoint. Parallel with Phase 11 | 14–20 | 10–16 |
@@ -177,14 +177,14 @@
 
 ## Cumulative Evolution
 
-| Metric | Post-Hindsight (Now) | Phase 14 (Target) | Remaining |
-|--------|---------------------|-------------------|-----------|
-| SQLite tables | 18 | 23 | +5 |
-| CRM tools | 37 | ~55 | +18 |
-| Test files | 27 | ~35 | +8 |
-| Tests passing | 578 | 900+ | +322 |
+| Metric | Post-Phase 9 (Now) | Phase 14 (Target) | Remaining |
+|--------|-------------------|-------------------|-----------|
+| SQLite tables | 21 | 23 | +2 |
+| CRM tools | 44 | ~55 | +11 |
+| Test files | 29 | ~35 | +6 |
+| Tests passing | 608 | 900+ | +292 |
 | Persona templates | 8 | 8 (dynamic) | — |
-| Claude Code sessions | 7 | 26 | 19 |
+| Claude Code sessions | 10 | 26 | 16 |
 | Estimated hours | — | 65–85h | — |
 
 ### New Tables by Phase
@@ -255,7 +255,7 @@ These rules hold across ALL phases:
 
 - **Server**: Test VPS, Node 22.22.0, Docker 29.3.0
 - **Service**: `agentic-crm.service` (systemd), managed via `crm-ctl`
-- **Container**: `agentic-crm-agent:latest` (rebuilt 2026-03-08)
+- **Container**: `agentic-crm-agent:latest` (rebuilt 2026-03-15)
 - **Hindsight**: `crm-hindsight` Docker sidecar (port 8888 API, 9999 UI), persistent volume at `data/hindsight/`
 - **WhatsApp**: Authenticated (5215530331051)
 - **Dashboard**: Port 3000 open (UFW), short links via Bitly
@@ -266,6 +266,9 @@ These rules hold across ALL phases:
 
 | Commit | Description |
 |--------|-------------|
+| `99062e4` | feat: Phase 9 Session 9 — briefing integration + nightly warmth recomputation |
+| `0447445` | feat: Phase 9 Session 8 — relationship tools + warmth computation (7 tools, 44 total) |
+| `7ff8ca4` | feat: Phase 9 Session 7 — relationship schema (3 tables + contacto enhancement) |
 | `b752b85` | feat: Hindsight adaptations — circuit breaker, long-term memory, hybrid RAG (18 tables, 37 tools, 578 tests) |
 | `63cf2e3` | fix: voice transcription — wrong import path + bad extension parsing |
 | `83a1226` | feat: Phase 8 Session 6 — VP glance dashboard (vp-glance API, glance.html, 543 tests) |
