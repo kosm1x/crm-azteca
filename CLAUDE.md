@@ -11,21 +11,23 @@ Agentic CRM for media ad sales. NanoClaw engine at `engine/`, all CRM code at `c
 | File | Purpose |
 |------|---------|
 | `crm/src/bootstrap.ts` | CRM init: creates schema, registers hooks |
-| `crm/src/schema.ts` | 16 CRM tables (12 core + crm_events + crm_documents + crm_embeddings + crm_vec_embeddings) |
+| `crm/src/schema.ts` | 21 CRM tables (15 core + crm_events + docs/embeddings/vec/fts + crm_memories + 3 relationship tables) |
 | `crm/src/hierarchy.ts` | isManagerOf, isDirectorOf, isVp helpers |
-| `crm/src/ipc-handlers.ts` | CRM IPC handler (crm_registrar_actividad, etc.) |
-| `crm/src/doc-sync.ts` | Document sync + RAG pipeline (chunk, embed, search) |
-| `crm/src/register.ts` | Batch hierarchy registration (CSV/JSON) |
-| `crm/src/escalation.ts` | Real-time escalation (quota, coaching, pattern, systemic) |
-| `crm/src/alerts.ts` | Alert evaluators (6 types + event countdown) |
-| `crm/src/google-auth.ts` | Google Workspace JWT auth (Gmail, Drive, Calendar) |
-| `crm/src/tools/index.ts` | Tool registry: 34 tools, role-based filtering |
+| `crm/src/ipc-handlers.ts` | CRM IPC handler (crm_registrar_actividad, warmth_recompute, etc.) |
+| `crm/src/doc-sync.ts` | Document sync + hybrid RAG (vector KNN + FTS5 keyword + RRF fusion) |
+| `crm/src/circuit-breaker.ts` | Reusable circuit breaker (inference, embedding, Hindsight) |
+| `crm/src/warmth.ts` | Executive relationship warmth scoring (recency + frequency + quality) |
+| `crm/src/warmth-scheduler.ts` | Nightly warmth recomputation (4 AM MX via IPC) |
+| `crm/src/memory/` | Pluggable memory service (Hindsight sidecar or SQLite fallback) |
+| `crm/src/tools/index.ts` | Tool registry: 44 tools, role-based filtering |
+| `crm/src/tools/relaciones.ts` | 7 Dir/VP relationship tools (warmth, milestones, interactions) |
+| `crm/src/tools/memoria.ts` | 3 memory tools (guardar, buscar, reflexionar) |
 | `crm/src/dashboard/server.ts` | Dashboard HTTP server + router (7 API endpoints) |
-| `crm/src/dashboard/auth.ts` | Dashboard JWT auth (HMAC-SHA256, no external deps) |
-| `crm/src/dashboard/api.ts` | Dashboard API handlers (reuses scopeFilter pattern) |
 | `crm/groups/global.md` | Global CLAUDE.md template (schema, queries, rules) |
-| `crm/groups/ae.md` | AE persona template (31 tools) |
-| `crm/groups/manager.md` | Manager persona template (23 tools) |
+| `crm/groups/ae.md` | AE persona template (33 tools) |
+| `crm/groups/manager.md` | Manager persona template (27 tools) |
+| `crm/groups/director.md` | Director persona template (33 tools, incl. 7 relationship) |
+| `crm/groups/vp.md` | VP persona template (31 tools, incl. 7 relationship) |
 
 ### Engine Hook Points (DO NOT modify beyond these 5 files)
 
@@ -87,11 +89,13 @@ git subtree pull --prefix=engine https://github.com/qwibitai/nanoclaw.git main -
 ### Message Flow
 
 ```
-WhatsApp → engine (NanoClaw) → Direct tools (29 CRM tools via inference adapter)
-                                    ├── Role-based tool filtering
+WhatsApp → engine (NanoClaw) → Direct tools (44 CRM tools via inference adapter)
+                                    ├── Role-based tool filtering (AE:33, Ger:27, Dir:33, VP:31)
                                     ├── Google Workspace (Gmail, Drive, Calendar)
-                                    ├── RAG search (buscar_documentos)
-                                    └── CRM CLAUDE.md (persona + schema + rules)
+                                    ├── Hybrid RAG (vector + FTS5 keyword + RRF fusion)
+                                    ├── Long-term memory (Hindsight or SQLite fallback)
+                                    ├── Relationship intelligence (Dir/VP: warmth, milestones)
+                                    └── CRM CLAUDE.md (persona + schema + rules + date/time)
 ```
 
 ## CRM Patterns
@@ -114,12 +118,12 @@ WhatsApp → engine (NanoClaw) → Direct tools (29 CRM tools via inference adap
 ## Testing
 
 ```bash
-npm run test         # All tests (543 CRM tests)
+npm run test         # All tests (608 CRM + 640 engine)
 ```
 
 Tests live in:
 - `engine/src/*.test.ts` — Engine tests
-- `crm/tests/*.test.ts` — CRM tests (22 test files)
+- `crm/tests/*.test.ts` — CRM tests (29 test files)
 
 ## Service Operations
 - Always kill ALL `tsx.*engine` processes before starting fresh.
