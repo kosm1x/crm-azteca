@@ -1,7 +1,7 @@
 /**
  * CRM Schema Definitions — Domain-specific for media ad sales
  *
- * 18 tables. All created in the same SQLite database used by the NanoClaw
+ * 21 tables. All created in the same SQLite database used by the NanoClaw
  * engine (via getDatabase() export).
  *
  * Tables:
@@ -43,6 +43,9 @@ export const CRM_TABLES = [
   "crm_vec_embeddings",
   "crm_memories",
   "crm_fts_embeddings",
+  "relacion_ejecutiva",
+  "interaccion_ejecutiva",
+  "hito_contacto",
 ] as const;
 
 export type CrmTableName = (typeof CRM_TABLES)[number];
@@ -214,6 +217,31 @@ export function createCrmSchema(db: Database.Database): void {
     );
   }
 
+  // -- Phase 9: Additive migrations on contacto --
+  const contactoCols = db.prepare("PRAGMA table_info(contacto)").all() as {
+    name: string;
+  }[];
+  const contactoColNames = new Set(contactoCols.map((c) => c.name));
+
+  if (!contactoColNames.has("es_ejecutivo")) {
+    db.exec("ALTER TABLE contacto ADD COLUMN es_ejecutivo INTEGER DEFAULT 0");
+  }
+  if (!contactoColNames.has("titulo")) {
+    db.exec("ALTER TABLE contacto ADD COLUMN titulo TEXT");
+  }
+  if (!contactoColNames.has("organizacion")) {
+    db.exec("ALTER TABLE contacto ADD COLUMN organizacion TEXT");
+  }
+  if (!contactoColNames.has("linkedin_url")) {
+    db.exec("ALTER TABLE contacto ADD COLUMN linkedin_url TEXT");
+  }
+  if (!contactoColNames.has("notas_personales")) {
+    db.exec("ALTER TABLE contacto ADD COLUMN notas_personales TEXT");
+  }
+  if (!contactoColNames.has("fecha_nacimiento")) {
+    db.exec("ALTER TABLE contacto ADD COLUMN fecha_nacimiento TEXT");
+  }
+
   db.exec(`
     -- 8. CUOTA (Weekly quotas)
     CREATE TABLE IF NOT EXISTS cuota (
@@ -358,6 +386,50 @@ export function createCrmSchema(db: Database.Database): void {
       content_rowid='rowid',
       tokenize='unicode61 remove_diacritics 2'
     );
+
+    -- 19. RELACION_EJECUTIVA (Dir/VP executive relationship tracking)
+    CREATE TABLE IF NOT EXISTS relacion_ejecutiva (
+      id TEXT PRIMARY KEY,
+      persona_id TEXT NOT NULL REFERENCES persona(id),
+      contacto_id TEXT NOT NULL REFERENCES contacto(id),
+      tipo TEXT NOT NULL CHECK(tipo IN ('cliente','agencia','industria','interna')),
+      importancia TEXT DEFAULT 'media' CHECK(importancia IN ('critica','alta','media','baja')),
+      notas_estrategicas TEXT,
+      warmth_score REAL DEFAULT 50.0,
+      warmth_updated TEXT,
+      fecha_creacion TEXT DEFAULT (datetime('now')),
+      UNIQUE(persona_id, contacto_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_relej_persona ON relacion_ejecutiva(persona_id);
+    CREATE INDEX IF NOT EXISTS idx_relej_contacto ON relacion_ejecutiva(contacto_id);
+    CREATE INDEX IF NOT EXISTS idx_relej_warmth ON relacion_ejecutiva(warmth_score);
+
+    -- 20. INTERACCION_EJECUTIVA (executive interaction log)
+    CREATE TABLE IF NOT EXISTS interaccion_ejecutiva (
+      id TEXT PRIMARY KEY,
+      relacion_id TEXT NOT NULL REFERENCES relacion_ejecutiva(id),
+      tipo TEXT NOT NULL CHECK(tipo IN ('llamada','comida','evento','reunion','email','regalo','presentacion','otro')),
+      resumen TEXT NOT NULL,
+      calidad TEXT DEFAULT 'normal' CHECK(calidad IN ('excepcional','buena','normal','superficial')),
+      lugar TEXT,
+      fecha TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_intej_relacion ON interaccion_ejecutiva(relacion_id);
+    CREATE INDEX IF NOT EXISTS idx_intej_fecha ON interaccion_ejecutiva(fecha);
+
+    -- 21. HITO_CONTACTO (contact milestones: birthdays, promotions, renewals)
+    CREATE TABLE IF NOT EXISTS hito_contacto (
+      id TEXT PRIMARY KEY,
+      contacto_id TEXT NOT NULL REFERENCES contacto(id),
+      tipo TEXT NOT NULL CHECK(tipo IN ('cumpleanos','ascenso','cambio_empresa','renovacion','aniversario','otro')),
+      titulo TEXT NOT NULL,
+      fecha TEXT NOT NULL,
+      recurrente INTEGER DEFAULT 0,
+      notas TEXT,
+      fecha_creacion TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_hito_contacto ON hito_contacto(contacto_id);
+    CREATE INDEX IF NOT EXISTS idx_hito_fecha ON hito_contacto(fecha);
   `);
 
   // Note: No FTS5 delete trigger. External content FTS5 tables corrupt when

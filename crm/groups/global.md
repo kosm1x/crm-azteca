@@ -52,6 +52,13 @@ Formato WhatsApp:
 ### Eventos Comerciales
 *crm_events*: id, nombre, tipo (tentpole|deportivo|estacional|industria), fecha_inicio, fecha_fin, inventario_total (JSON), inventario_vendido (JSON), meta_ingresos, ingresos_actual, prioridad (alta|media|baja), notas
 
+### Relaciones Ejecutivas
+*relacion_ejecutiva*: id, persona_id (FK persona), contacto_id (FK contacto), tipo (cliente|agencia|industria|interna), importancia (critica|alta|media|baja), notas_estrategicas, warmth_score (0-100), warmth_updated, fecha_creacion. UNIQUE(persona_id, contacto_id)
+
+*interaccion_ejecutiva*: id, relacion_id (FK relacion_ejecutiva), tipo (llamada|comida|evento|reunion|email|regalo|presentacion|otro), resumen, calidad (excepcional|buena|normal|superficial), lugar, fecha
+
+*hito_contacto*: id, contacto_id (FK contacto), tipo (cumpleanos|ascenso|cambio_empresa|renovacion|aniversario|otro), titulo, fecha, recurrente (0|1), notas, fecha_creacion
+
 ### Memoria
 *crm_memories*: id, persona_id, banco, contenido, etiquetas, fecha_creacion
 
