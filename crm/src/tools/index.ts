@@ -46,6 +46,15 @@ import {
   buscar_memoria,
   reflexionar_memoria,
 } from "./memoria.js";
+import {
+  registrar_relacion_ejecutiva,
+  registrar_interaccion_ejecutiva,
+  consultar_salud_relaciones,
+  consultar_historial_relacion,
+  registrar_hito,
+  consultar_hitos_proximos,
+  actualizar_notas_estrategicas,
+} from "./relaciones.js";
 
 // ---------------------------------------------------------------------------
 // Tool context — passed to every tool handler
@@ -1019,6 +1028,220 @@ const TOOL_REFLEXIONAR_MEMORIA: ToolDefinition = {
   },
 };
 
+const TOOL_REGISTRAR_RELACION_EJECUTIVA: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "registrar_relacion_ejecutiva",
+    description:
+      "Inicia el rastreo de una relacion ejecutiva con un contacto clave.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Quieres monitorear la salud de una relacion con un decisor, director de marketing, o contacto estrategico\n" +
+      "- Despues de una comida o reunion importante con alguien que vale la pena rastrear a largo plazo\n\n" +
+      "NO USAR CUANDO:\n" +
+      "- El contacto ya esta siendo rastreado (el sistema te avisara)\n" +
+      "- Es un contacto operativo de bajo nivel — reserva para relaciones estrategicas",
+    parameters: {
+      type: "object",
+      properties: {
+        contacto_nombre: {
+          type: "string",
+          description: "Nombre del contacto ejecutivo",
+        },
+        tipo: {
+          type: "string",
+          enum: ["cliente", "agencia", "industria", "interna"],
+          description: "Tipo de relacion",
+        },
+        importancia: {
+          type: "string",
+          enum: ["critica", "alta", "media", "baja"],
+          description: "Nivel de importancia estrategica",
+        },
+        notas_estrategicas: {
+          type: "string",
+          description: "Notas de estrategia para esta relacion (opcional)",
+        },
+      },
+      required: ["contacto_nombre"],
+    },
+  },
+};
+
+const TOOL_REGISTRAR_INTERACCION_EJECUTIVA: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "registrar_interaccion_ejecutiva",
+    description:
+      "Registra una interaccion ejecutiva (comida, reunion, evento, etc.) con un contacto rastreado.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Tuviste una comida, reunion, o evento con un contacto ejecutivo rastreado\n" +
+      "- Quieres actualizar el warmth score de la relacion con una nueva interaccion\n\n" +
+      "NO USAR CUANDO:\n" +
+      "- La relacion no ha sido registrada (usa registrar_relacion_ejecutiva primero)\n" +
+      "- Es una actividad operativa de un AE (usa registrar_actividad)",
+    parameters: {
+      type: "object",
+      properties: {
+        contacto_nombre: { type: "string", description: "Nombre del contacto" },
+        tipo: {
+          type: "string",
+          enum: [
+            "llamada",
+            "comida",
+            "evento",
+            "reunion",
+            "email",
+            "regalo",
+            "presentacion",
+            "otro",
+          ],
+        },
+        resumen: { type: "string", description: "Resumen de la interaccion" },
+        calidad: {
+          type: "string",
+          enum: ["excepcional", "buena", "normal", "superficial"],
+          description: "Calidad de la interaccion",
+        },
+        lugar: { type: "string", description: "Lugar o contexto (opcional)" },
+      },
+      required: ["contacto_nombre", "resumen"],
+    },
+  },
+};
+
+const TOOL_CONSULTAR_SALUD_RELACIONES: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "consultar_salud_relaciones",
+    description:
+      "Muestra el estado de warmth de todas tus relaciones ejecutivas rastreadas, ordenadas por salud.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Quieres ver que relaciones necesitan atencion (frias o congeladas)\n" +
+      "- Antes de planear tu agenda semanal de relaciones\n" +
+      "- Para una vista general del estado relacional con una cuenta especifica",
+    parameters: {
+      type: "object",
+      properties: {
+        filtro: {
+          type: "string",
+          enum: ["todas", "frias", "calientes"],
+          description: "Filtrar por estado de warmth. Default: todas",
+        },
+        cuenta_nombre: {
+          type: "string",
+          description: "Filtrar por cuenta (opcional)",
+        },
+      },
+    },
+  },
+};
+
+const TOOL_CONSULTAR_HISTORIAL_RELACION: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "consultar_historial_relacion",
+    description:
+      "Historial completo de una relacion ejecutiva: interacciones, hitos, warmth detallado, notas estrategicas.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Necesitas prepararte para una reunion con un contacto ejecutivo\n" +
+      "- Quieres analizar la evolucion de una relacion\n" +
+      "- Antes de tomar una decision estrategica sobre una cuenta clave",
+    parameters: {
+      type: "object",
+      properties: {
+        contacto_nombre: { type: "string", description: "Nombre del contacto" },
+      },
+      required: ["contacto_nombre"],
+    },
+  },
+};
+
+const TOOL_REGISTRAR_HITO: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "registrar_hito",
+    description:
+      "Registra un hito de un contacto ejecutivo (cumpleanos, ascenso, cambio de empresa, renovacion).\n\n" +
+      "USAR CUANDO:\n" +
+      "- Descubres el cumpleanos de un contacto clave\n" +
+      "- Un contacto fue ascendido o cambio de empresa\n" +
+      "- Hay una fecha de renovacion de contrato importante",
+    parameters: {
+      type: "object",
+      properties: {
+        contacto_nombre: { type: "string", description: "Nombre del contacto" },
+        tipo: {
+          type: "string",
+          enum: [
+            "cumpleanos",
+            "ascenso",
+            "cambio_empresa",
+            "renovacion",
+            "aniversario",
+            "otro",
+          ],
+        },
+        titulo: { type: "string", description: "Descripcion breve del hito" },
+        fecha: {
+          type: "string",
+          description: "Fecha del hito (ISO: YYYY-MM-DD)",
+        },
+        recurrente: {
+          type: "boolean",
+          description: "Si se repite anualmente (ej: cumpleanos)",
+        },
+        notas: { type: "string", description: "Notas adicionales (opcional)" },
+      },
+      required: ["contacto_nombre", "titulo", "fecha"],
+    },
+  },
+};
+
+const TOOL_CONSULTAR_HITOS_PROXIMOS: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "consultar_hitos_proximos",
+    description:
+      "Muestra hitos proximos de contactos ejecutivos rastreados (cumpleanos, ascensos, renovaciones).\n\n" +
+      "USAR CUANDO:\n" +
+      "- Quieres planear gestos de goodwill para las proximas semanas\n" +
+      "- Antes de un briefing semanal para mencionar fechas importantes",
+    parameters: {
+      type: "object",
+      properties: {
+        dias_adelante: {
+          type: "number",
+          description: "Dias a futuro (default 30, max 180)",
+        },
+      },
+    },
+  },
+};
+
+const TOOL_ACTUALIZAR_NOTAS_ESTRATEGICAS: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "actualizar_notas_estrategicas",
+    description:
+      "Actualiza las notas de estrategia para una relacion ejecutiva.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Cambia la dinamica politica de una cuenta\n" +
+      "- Quieres documentar una estrategia de acercamiento a largo plazo\n" +
+      "- Despues de una reunion reveladora que cambia tu perspectiva sobre la relacion",
+    parameters: {
+      type: "object",
+      properties: {
+        contacto_nombre: { type: "string", description: "Nombre del contacto" },
+        notas: {
+          type: "string",
+          description: "Notas de estrategia (reemplaza las anteriores)",
+        },
+      },
+      required: ["contacto_nombre", "notas"],
+    },
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Role-based tool sets
 // ---------------------------------------------------------------------------
@@ -1089,6 +1312,16 @@ const GERENTE_TOOLS: ToolDefinition[] = [
   TOOL_REFLEXIONAR_MEMORIA,
 ];
 
+const RELATIONSHIP_TOOLS: ToolDefinition[] = [
+  TOOL_REGISTRAR_RELACION_EJECUTIVA,
+  TOOL_REGISTRAR_INTERACCION_EJECUTIVA,
+  TOOL_CONSULTAR_SALUD_RELACIONES,
+  TOOL_CONSULTAR_HISTORIAL_RELACION,
+  TOOL_REGISTRAR_HITO,
+  TOOL_CONSULTAR_HITOS_PROXIMOS,
+  TOOL_ACTUALIZAR_NOTAS_ESTRATEGICAS,
+];
+
 const DIRECTOR_TOOLS: ToolDefinition[] = [
   TOOL_CONSULTAR_PIPELINE,
   TOOL_CONSULTAR_CUENTA,
@@ -1116,6 +1349,7 @@ const DIRECTOR_TOOLS: ToolDefinition[] = [
   TOOL_GUARDAR_OBSERVACION,
   TOOL_BUSCAR_MEMORIA,
   TOOL_REFLEXIONAR_MEMORIA,
+  ...RELATIONSHIP_TOOLS,
 ];
 
 const VP_TOOLS: ToolDefinition[] = [
@@ -1143,6 +1377,7 @@ const VP_TOOLS: ToolDefinition[] = [
   TOOL_GENERAR_BRIEFING,
   TOOL_BUSCAR_MEMORIA,
   TOOL_REFLEXIONAR_MEMORIA,
+  ...RELATIONSHIP_TOOLS,
 ];
 
 export function getToolsForRole(
@@ -1202,6 +1437,13 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   guardar_observacion,
   buscar_memoria,
   reflexionar_memoria,
+  registrar_relacion_ejecutiva,
+  registrar_interaccion_ejecutiva,
+  consultar_salud_relaciones,
+  consultar_historial_relacion,
+  registrar_hito,
+  consultar_hitos_proximos,
+  actualizar_notas_estrategicas,
 };
 
 export async function executeTool(

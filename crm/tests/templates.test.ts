@@ -213,8 +213,8 @@ describe("global.md -- tool coverage", () => {
     }
   }
 
-  it("references all 37 tool names", () => {
-    expect(allToolNames.size).toBe(37);
+  it("references all 44 tool names", () => {
+    expect(allToolNames.size).toBe(44);
     for (const name of allToolNames) {
       expect(globalMd, `Missing tool: ${name}`).toContain(name);
     }
@@ -270,7 +270,7 @@ describe("manager.md -- tool references", () => {
 describe("director.md -- tool references", () => {
   const directorTools = getToolsForRole("director").map((t) => t.function.name);
 
-  it("references all 26 director tools", () => {
+  it("references all 33 director tools", () => {
     for (const name of directorTools) {
       expect(directorMd, `Missing director tool: ${name}`).toContain(name);
     }
@@ -284,7 +284,7 @@ describe("director.md -- tool references", () => {
 describe("vp.md -- tool references", () => {
   const vpTools = getToolsForRole("vp").map((t) => t.function.name);
 
-  it("references all 24 VP tools", () => {
+  it("references all 31 VP tools", () => {
     for (const name of vpTools) {
       expect(vpMd, `Missing VP tool: ${name}`).toContain(name);
     }

@@ -177,6 +177,15 @@ No todas las herramientas estan disponibles para todos los roles.
 ### Briefing Agregado
 - *generar_briefing* -- Genera briefing agregado segun rol. AE: carry-over, cuentas sin contacto >14d, path-to-close, agenda, estancadas. Gerente: sentimiento equipo, compliance wrap-up, path-to-close por Ejecutivo, estancadas. Director: sentimiento cross-equipo, coaching gerentes, mega-deals, pipeline por equipo, cuota ranking. VP: pulso organizacional, equipos >30% negativo, revenue at risk, mega-deals. No requiere parametros.
 
+### Relaciones Ejecutivas
+- *registrar_relacion_ejecutiva* -- Inicia rastreo de relacion con contacto ejecutivo clave
+- *registrar_interaccion_ejecutiva* -- Registra interaccion ejecutiva (comida, reunion, evento)
+- *consultar_salud_relaciones* -- Estado de warmth de todas las relaciones rastreadas
+- *consultar_historial_relacion* -- Historial completo de una relacion
+- *registrar_hito* -- Registra hito de contacto (cumpleanos, ascenso, renovacion)
+- *consultar_hitos_proximos* -- Hitos en los proximos N dias
+- *actualizar_notas_estrategicas* -- Actualiza notas de estrategia para una relacion
+
 ### Reflexion Diaria
 - *consultar_resumen_dia* -- Resume el dia completo del Ejecutivo: actividades registradas, propuestas movidas, acciones pendientes/vencidas, propuestas estancadas >7 dias, y avance de cuota semanal. Usa al cierre del dia (6:30pm). Solo disponible para Ejecutivos.
 

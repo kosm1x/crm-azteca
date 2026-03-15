@@ -195,14 +195,14 @@ describe("role-based tool filtering", () => {
     expect(tools.length).toBe(27);
   });
 
-  it("director gets 26 tools", () => {
+  it("director gets 33 tools", () => {
     const tools = getToolsForRole("director");
-    expect(tools.length).toBe(26);
+    expect(tools.length).toBe(33);
   });
 
-  it("VP gets 24 tools", () => {
+  it("VP gets 31 tools", () => {
     const tools = getToolsForRole("vp");
-    expect(tools.length).toBe(24);
+    expect(tools.length).toBe(31);
   });
 
   it("all roles have consultar_pipeline", () => {
