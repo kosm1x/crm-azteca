@@ -17,6 +17,34 @@ import {
 import { getPersonaEmail } from "./helpers.js";
 import type { ToolContext } from "./index.js";
 
+/** Wrap plain text in HTML email template with proper paragraph spacing. */
+function wrapEmailHtml(body: string): string {
+  const hasHtml = /<(p|div|table|h[1-6]|ul|ol|br)\b/i.test(body);
+  let htmlBody: string;
+  if (hasHtml) {
+    htmlBody = body;
+  } else {
+    htmlBody = body
+      .split(/\n\n+/)
+      .map(
+        (para) =>
+          `<p style="margin: 0 0 16px 0; line-height: 1.6;">${para.replace(/\n/g, "<br>")}</p>`,
+      )
+      .join("\n");
+  }
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background-color:#f5f5f5;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5;padding:20px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+<tr><td style="padding:32px 40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#333333;">
+${htmlBody}
+</td></tr></table>
+</td></tr></table>
+</body></html>`;
+}
+
 // ---------------------------------------------------------------------------
 // buscar_emails
 // ---------------------------------------------------------------------------
@@ -174,8 +202,9 @@ export async function crear_borrador_email(
     });
   }
 
+  const htmlBody = wrapEmailHtml(cuerpo);
   const raw = Buffer.from(
-    `From: ${email}\r\nTo: ${destinatario}\r\nSubject: ${asunto}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${cuerpo}`,
+    `From: ${email}\r\nTo: ${destinatario}\r\nSubject: ${asunto}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${htmlBody}`,
   ).toString("base64url");
 
   // Try creating a draft first (requires gmail.compose scope)
