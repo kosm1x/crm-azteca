@@ -9,7 +9,10 @@
 import { google } from "googleapis";
 import { JWT } from "google-auth-library";
 
-const GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.send"];
+const GMAIL_SCOPES = [
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/gmail.compose",
+];
 const GMAIL_READONLY_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
 ];
