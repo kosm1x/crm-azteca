@@ -31,11 +31,11 @@ export interface HindsightRecallRequest {
 }
 
 export interface HindsightRecallResponse {
-  memories: Array<{
-    content: string;
-    relevance: number;
-    created_at?: string;
+  results: Array<{
+    text: string;
+    id?: string;
     type?: string;
+    mentioned_at?: string;
   }>;
 }
 
@@ -110,11 +110,10 @@ export class HindsightClient {
 
   /** Store an observation in a memory bank. */
   async retain(bankId: string, req: HindsightRetainRequest): Promise<void> {
-    await this.request(
-      "POST",
-      `/v1/default/banks/${bankId}/memories/retain`,
-      req,
-    );
+    await this.request("POST", `/v1/default/banks/${bankId}/memories`, {
+      items: [{ content: req.observation }],
+      async: req.async ?? true,
+    });
   }
 
   /** Search memories by semantic similarity. */

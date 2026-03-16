@@ -62,10 +62,9 @@ export class HindsightMemoryBackend implements MemoryService {
         max_results: options.maxResults ?? 10,
       });
       this.breaker.recordSuccess();
-      return response.memories.map((m) => ({
-        content: m.content,
-        relevance: m.relevance,
-        createdAt: m.created_at,
+      return (response.results ?? []).map((m) => ({
+        content: m.text,
+        createdAt: m.mentioned_at,
       }));
     } catch (err) {
       this.breaker.recordFailure(err);

@@ -224,13 +224,14 @@ describe("HindsightMemoryBackend", () => {
       tags: ["test"],
     });
 
-    // First call: upsertBank (lazy init), second call: retain
+    // First call: upsertBank (lazy init), second call: retain via /memories
     expect(requests.length).toBeGreaterThanOrEqual(2);
-    const retainReq = requests.find((r) => r.url.includes("/retain"));
+    const retainReq = requests.find(
+      (r) => r.url.includes("/memories") && !r.url.includes("/recall"),
+    );
     expect(retainReq).toBeDefined();
     expect(retainReq!.body).toMatchObject({
-      observation: "Test observation",
-      tags: ["test"],
+      items: [{ content: "Test observation" }],
     });
   });
 
