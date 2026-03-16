@@ -27,7 +27,8 @@ export function consultar_pipeline(
   const scope = scopeFilter(ctx, "p.ae_id");
   const ef = estadoFilter(ctx, "c");
 
-  let where = "WHERE 1=1 " + scope.where + " " + ef.where;
+  let where =
+    "WHERE p.etapa != 'borrador_agente' " + scope.where + " " + ef.where;
   const params: unknown[] = [...scope.params, ...ef.params];
 
   if (args.etapa) {

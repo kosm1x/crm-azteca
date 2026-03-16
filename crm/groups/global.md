@@ -89,6 +89,9 @@ Formato WhatsApp:
 ### Inteligencia Comercial
 *insight_comercial*: id, entidad tipo (oportunidad_calendario|oportunidad_inventario|oportunidad_gap|oportunidad_crosssell|oportunidad_mercado|riesgo|patron|recomendacion), cuenta_id, ae_id, propuesta_id, evento_id, titulo, descripcion, accion_recomendada, datos_soporte (JSON), confianza (0-1), sample_size, valor_potencial, estado (nuevo|briefing|aceptado|convertido|descartado|expirado), razon_descarte, propuesta_generada_id, fecha_generacion, fecha_expiracion, fecha_accion, lote_nocturno
 
+### Patrones Cross-Agente
+*patron_detectado*: id, tipo (tendencia_vertical|movimiento_holding|conflicto_inventario|senal_competitiva|correlacion_winloss|concentracion_riesgo), descripcion, datos_json, sample_size, confianza (0-1), personas_afectadas (JSON), cuentas_afectadas (JSON), nivel_minimo (ae|gerente|director|vp), accion_recomendada, activo (0|1), fecha_deteccion, lote_nocturno
+
 ### Aprobaciones
 *aprobacion_registro*: id, entidad_tipo (cuenta|contacto), entidad_id, accion (creado|aprobado|rechazado|impugnado|resuelto|auto_activado), actor_id, actor_rol, estado_anterior, estado_nuevo, motivo, fecha
 
@@ -223,8 +226,12 @@ No todas las herramientas estan disponibles para todos los roles.
 
 ### Inteligencia Comercial
 - *consultar_insights* -- Insights comerciales del analisis nocturno. Oportunidades de calendario, inventario, gaps, cross-sell, mercado. Filtrable por tipo y estado
-- *actuar_insight* -- Acepta o descarta un insight. Descartar requiere razon (mejora el sistema)
+- *actuar_insight* -- Acepta, convierte a borrador de propuesta, o descarta. Descartar requiere razon
+- *revisar_borrador* -- Detalle completo de borrador generado por el agente: razonamiento, datos de soporte, confianza
+- *modificar_borrador* -- Modifica campos de un borrador o lo promueve a en_preparacion con aceptar=true
 - *consultar_insights_equipo* -- Resumen de insights del equipo: total, tasa de aceptacion, por Ejecutivo (solo gerente+)
+- *consultar_patrones* -- Patrones cross-equipo detectados por el analisis nocturno: tendencias verticales, holdings, conflictos inventario, win/loss, concentracion (solo gerente+)
+- *desactivar_patron* -- Desactiva un patron detectado que ya no es relevante (solo director+)
 
 ### Aprobaciones
 - *solicitar_cuenta* -- Solicita creacion de nueva cuenta. Estado inicial segun rol (ae→pendiente_gerente, gerente→pendiente_director, director→activo_en_revision, vp→activo)

@@ -32,6 +32,7 @@ const VALID_SENTIMIENTOS = new Set([
   "urgente",
 ]);
 const VALID_ETAPAS = new Set([
+  "borrador_agente",
   "en_preparacion",
   "enviada",
   "en_discusion",

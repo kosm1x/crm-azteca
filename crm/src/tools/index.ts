@@ -72,7 +72,10 @@ import {
   consultar_insights,
   actuar_insight,
   consultar_insights_equipo,
+  revisar_borrador,
+  modificar_borrador,
 } from "./insight-tools.js";
+import { consultar_patrones, desactivar_patron } from "./pattern-tools.js";
 
 // ---------------------------------------------------------------------------
 // Tool context — passed to every tool handler
@@ -1608,12 +1611,11 @@ const TOOL_ACTUAR_INSIGHT: ToolDefinition = {
   function: {
     name: "actuar_insight",
     description:
-      "Actua sobre un insight comercial: aceptarlo o descartarlo.\n\n" +
-      "- 'aceptar': Marca el insight como aceptado. El Ejecutivo tomara accion.\n" +
-      "- 'descartar': Requiere razon obligatoria. La razon ayuda al sistema a mejorar.\n\n" +
-      "IMPORTANTE: Cuando el Ejecutivo quiere descartar un insight, pregunta la razon " +
-      "antes de llamar esta herramienta. Razones comunes: 'ya tengo propuesta en vuelo', " +
-      "'relacion fria, no es buen momento', 'el cliente cambio de prioridades'.",
+      "Actua sobre un insight comercial: aceptarlo, convertirlo en borrador de propuesta, o descartarlo.\n\n" +
+      "- 'aceptar': Marca como aceptado. El Ejecutivo tomara accion manualmente.\n" +
+      "- 'convertir': Genera borrador de propuesta (titulo, valor, medios, razonamiento). El Ejecutivo revisa con revisar_borrador y modifica con modificar_borrador.\n" +
+      "- 'descartar': Requiere razon obligatoria (mejora el sistema).\n\n" +
+      "Usa 'convertir' cuando el insight tiene info suficiente para propuesta concreta. Usa 'aceptar' cuando el Ejecutivo necesita accion manual primero.",
     parameters: {
       type: "object",
       properties: {
@@ -1623,7 +1625,7 @@ const TOOL_ACTUAR_INSIGHT: ToolDefinition = {
         },
         accion: {
           type: "string",
-          enum: ["aceptar", "descartar"],
+          enum: ["aceptar", "descartar", "convertir"],
           description: "Que hacer con el insight",
         },
         razon: {
@@ -1654,13 +1656,156 @@ const TOOL_CONSULTAR_INSIGHTS_EQUIPO: ToolDefinition = {
   },
 };
 
+const TOOL_REVISAR_BORRADOR: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "revisar_borrador",
+    description:
+      "Muestra el detalle completo de un borrador de propuesta generado por el agente: valor, medios, razonamiento, confianza.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Quieres ver por que el agente genero esta propuesta\n" +
+      "- Antes de decidir si aceptar, modificar o descartar el borrador",
+    parameters: {
+      type: "object",
+      properties: {
+        propuesta_id: {
+          type: "string",
+          description: "ID de la propuesta borrador",
+        },
+      },
+      required: ["propuesta_id"],
+    },
+  },
+};
+
+const TOOL_MODIFICAR_BORRADOR: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "modificar_borrador",
+    description:
+      "Modifica un borrador de propuesta del agente y/o lo promueve a en_preparacion.\n" +
+      "Ajusta: titulo, valor_estimado, medios, tipo_oportunidad, gancho_temporal, fechas.\n" +
+      "Usa aceptar=true para promover a en_preparacion (listo para trabajar).\n\n" +
+      "USAR CUANDO:\n" +
+      "- El Ejecutivo dice 'bajale a $6M', 'quita digital', 'acepta el borrador'",
+    parameters: {
+      type: "object",
+      properties: {
+        propuesta_id: {
+          type: "string",
+          description: "ID de la propuesta borrador",
+        },
+        titulo: { type: "string", description: "Nuevo titulo (opcional)" },
+        valor_estimado: {
+          type: "number",
+          description: "Nuevo valor en MXN (opcional)",
+        },
+        medios: {
+          type: "string",
+          description: "Nuevo desglose de medios JSON (opcional)",
+        },
+        tipo_oportunidad: {
+          type: "string",
+          enum: [
+            "estacional",
+            "lanzamiento",
+            "reforzamiento",
+            "evento_especial",
+            "tentpole",
+            "prospeccion",
+          ],
+        },
+        gancho_temporal: {
+          type: "string",
+          description: "Nuevo gancho temporal (opcional)",
+        },
+        fecha_vuelo_inicio: {
+          type: "string",
+          description: "Nueva fecha inicio ISO (opcional)",
+        },
+        fecha_vuelo_fin: {
+          type: "string",
+          description: "Nueva fecha fin ISO (opcional)",
+        },
+        aceptar: {
+          type: "boolean",
+          description: "true para promover a en_preparacion",
+        },
+      },
+      required: ["propuesta_id"],
+    },
+  },
+};
+
+const TOOL_CONSULTAR_PATRONES: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "consultar_patrones",
+    description:
+      "Muestra patrones cross-equipo detectados por el analisis nocturno.\n\n" +
+      "Tipos de patrones:\n" +
+      "- tendencia_vertical: contraccion/expansion de un sector completo\n" +
+      "- movimiento_holding: compras coordinadas bajo el mismo holding de agencias\n" +
+      "- conflicto_inventario: multiples Ejecutivos compitiendo por el mismo inventario\n" +
+      "- correlacion_winloss: razones de perdida sistemicas que afectan a varios Ejecutivos\n" +
+      "- concentracion_riesgo: pipeline concentrado en pocos deals o un solo Ejecutivo\n\n" +
+      "Los patrones se filtran por tu nivel: gerentes ven coaching signals, directores ven asignacion, VP ve estrategia.",
+    parameters: {
+      type: "object",
+      properties: {
+        tipo: {
+          type: "string",
+          enum: [
+            "tendencia_vertical",
+            "movimiento_holding",
+            "conflicto_inventario",
+            "correlacion_winloss",
+            "concentracion_riesgo",
+          ],
+          description: "Filtrar por tipo de patron (opcional)",
+        },
+      },
+    },
+  },
+};
+
+const TOOL_DESACTIVAR_PATRON: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "desactivar_patron",
+    description:
+      "Desactiva un patron detectado que ya no es relevante.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Ya se tomo accion sobre el patron\n" +
+      "- El patron ya no aplica por cambio de circunstancias",
+    parameters: {
+      type: "object",
+      properties: {
+        patron_id: {
+          type: "string",
+          description: "ID del patron a desactivar",
+        },
+      },
+      required: ["patron_id"],
+    },
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Role-based tool sets
 // ---------------------------------------------------------------------------
 
+const PATTERN_TOOLS: ToolDefinition[] = [TOOL_CONSULTAR_PATRONES];
+const PATTERN_ADMIN_TOOLS: ToolDefinition[] = [
+  TOOL_CONSULTAR_PATRONES,
+  TOOL_DESACTIVAR_PATRON,
+];
+
 const INSIGHT_TOOLS: ToolDefinition[] = [
   TOOL_CONSULTAR_INSIGHTS,
   TOOL_ACTUAR_INSIGHT,
+  TOOL_REVISAR_BORRADOR,
+  TOOL_MODIFICAR_BORRADOR,
 ];
 
 const INSIGHT_TEAM_TOOLS: ToolDefinition[] = [
@@ -1751,6 +1896,7 @@ const GERENTE_TOOLS: ToolDefinition[] = [
   TOOL_REFLEXIONAR_MEMORIA,
   ...APPROVAL_TOOLS,
   ...INSIGHT_TEAM_TOOLS,
+  ...PATTERN_TOOLS,
 ];
 
 const RELATIONSHIP_TOOLS: ToolDefinition[] = [
@@ -1799,6 +1945,7 @@ const DIRECTOR_TOOLS: ToolDefinition[] = [
   ...RELATIONSHIP_TOOLS,
   ...APPROVAL_TOOLS,
   ...INSIGHT_TEAM_TOOLS,
+  ...PATTERN_ADMIN_TOOLS,
 ];
 
 const VP_TOOLS: ToolDefinition[] = [
@@ -1835,6 +1982,7 @@ const VP_TOOLS: ToolDefinition[] = [
   ...RELATIONSHIP_TOOLS,
   ...APPROVAL_TOOLS,
   ...INSIGHT_TEAM_TOOLS,
+  ...PATTERN_ADMIN_TOOLS,
 ];
 
 export function getToolsForRole(
@@ -1912,6 +2060,10 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   consultar_insights,
   actuar_insight,
   consultar_insights_equipo,
+  revisar_borrador,
+  modificar_borrador,
+  consultar_patrones,
+  desactivar_patron,
 };
 
 export async function executeTool(

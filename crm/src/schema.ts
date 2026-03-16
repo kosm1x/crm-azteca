@@ -1,7 +1,7 @@
 /**
  * CRM Schema Definitions — Domain-specific for media ad sales
  *
- * 23 tables. All created in the same SQLite database used by the NanoClaw
+ * 24 tables. All created in the same SQLite database used by the NanoClaw
  * engine (via getDatabase() export).
  *
  * Tables:
@@ -22,6 +22,7 @@
  *   - crm_embeddings: Document chunk embeddings for RAG search
  *   - aprobacion_registro: Approval workflow audit trail
  *   - insight_comercial: Overnight commercial insight engine
+ *   - patron_detectado: Cross-agent lateral pattern detection
  */
 
 import type Database from "better-sqlite3";
@@ -50,6 +51,7 @@ export const CRM_TABLES = [
   "hito_contacto",
   "aprobacion_registro",
   "insight_comercial",
+  "patron_detectado",
 ] as const;
 
 export type CrmTableName = (typeof CRM_TABLES)[number];
@@ -157,7 +159,7 @@ export function createCrmSchema(db: Database.Database): void {
       enviada_a TEXT CHECK(enviada_a IN ('cliente','agencia','ambos')),
       contactos_involucrados TEXT,
       etapa TEXT DEFAULT 'en_preparacion' CHECK(etapa IN (
-        'en_preparacion','enviada','en_discusion','en_negociacion',
+        'borrador_agente','en_preparacion','enviada','en_discusion','en_negociacion',
         'confirmada_verbal','orden_recibida','en_ejecucion',
         'completada','perdida','cancelada'
       )),
@@ -272,6 +274,65 @@ export function createCrmSchema(db: Database.Database): void {
   }
   if (!contactoColNames.has("fecha_activacion")) {
     db.exec("ALTER TABLE contacto ADD COLUMN fecha_activacion TEXT");
+  }
+
+  // -- Phase 11: Proposal draft columns + CHECK migration on propuesta --
+  const propCols = db.prepare("PRAGMA table_info(propuesta)").all() as {
+    name: string;
+  }[];
+  const propColNames = new Set(propCols.map((c) => c.name));
+
+  if (!propColNames.has("agente_razonamiento")) {
+    db.exec("ALTER TABLE propuesta ADD COLUMN agente_razonamiento TEXT");
+  }
+  if (!propColNames.has("confianza")) {
+    db.exec("ALTER TABLE propuesta ADD COLUMN confianza REAL");
+  }
+  if (!propColNames.has("insight_origen_id")) {
+    db.exec("ALTER TABLE propuesta ADD COLUMN insight_origen_id TEXT");
+  }
+
+  // Migrate CHECK constraint to include borrador_agente (SQLite can't ALTER CHECK).
+  // Only runs if the CHECK doesn't already include borrador_agente.
+  const propSql = (
+    db
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='propuesta'",
+      )
+      .get() as { sql: string } | undefined
+  )?.sql;
+  if (propSql && !propSql.includes("borrador_agente")) {
+    db.pragma("foreign_keys = OFF");
+    db.exec("DROP TABLE IF EXISTS propuesta_new");
+    db.exec(`
+      CREATE TABLE propuesta_new (
+        id TEXT PRIMARY KEY, cuenta_id TEXT, ae_id TEXT, titulo TEXT NOT NULL,
+        valor_estimado REAL, medios TEXT,
+        tipo_oportunidad TEXT CHECK(tipo_oportunidad IN ('estacional','lanzamiento','reforzamiento','evento_especial','tentpole','prospeccion')),
+        gancho_temporal TEXT, fecha_vuelo_inicio TEXT, fecha_vuelo_fin TEXT,
+        enviada_a TEXT CHECK(enviada_a IN ('cliente','agencia','ambos')),
+        contactos_involucrados TEXT,
+        etapa TEXT DEFAULT 'en_preparacion' CHECK(etapa IN ('borrador_agente','en_preparacion','enviada','en_discusion','en_negociacion','confirmada_verbal','orden_recibida','en_ejecucion','completada','perdida','cancelada')),
+        fecha_creacion TEXT DEFAULT (datetime('now')), fecha_envio TEXT,
+        fecha_ultima_actividad TEXT DEFAULT (datetime('now')), fecha_cierre_esperado TEXT,
+        dias_sin_actividad INTEGER DEFAULT 0, razon_perdida TEXT,
+        es_mega INTEGER GENERATED ALWAYS AS (CASE WHEN valor_estimado > 15000000 THEN 1 ELSE 0 END) STORED,
+        notas TEXT, agente_razonamiento TEXT, confianza REAL, insight_origen_id TEXT
+      )
+    `);
+    db.exec(
+      `INSERT INTO propuesta_new (id,cuenta_id,ae_id,titulo,valor_estimado,medios,tipo_oportunidad,gancho_temporal,fecha_vuelo_inicio,fecha_vuelo_fin,enviada_a,contactos_involucrados,etapa,fecha_creacion,fecha_envio,fecha_ultima_actividad,fecha_cierre_esperado,dias_sin_actividad,razon_perdida,notas,agente_razonamiento,confianza,insight_origen_id)
+       SELECT id,cuenta_id,ae_id,titulo,valor_estimado,medios,tipo_oportunidad,gancho_temporal,fecha_vuelo_inicio,fecha_vuelo_fin,enviada_a,contactos_involucrados,etapa,fecha_creacion,fecha_envio,fecha_ultima_actividad,fecha_cierre_esperado,dias_sin_actividad,razon_perdida,notas,agente_razonamiento,confianza,insight_origen_id
+       FROM propuesta`,
+    );
+    db.exec("DROP TABLE propuesta");
+    db.exec("ALTER TABLE propuesta_new RENAME TO propuesta");
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_propuesta_ae ON propuesta(ae_id);
+      CREATE INDEX IF NOT EXISTS idx_propuesta_cuenta ON propuesta(cuenta_id);
+      CREATE INDEX IF NOT EXISTS idx_propuesta_etapa ON propuesta(etapa);
+    `);
+    db.pragma("foreign_keys = ON");
   }
 
   db.exec(`
@@ -513,6 +574,29 @@ export function createCrmSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_insight_estado ON insight_comercial(estado);
     CREATE INDEX IF NOT EXISTS idx_insight_tipo ON insight_comercial(tipo);
     CREATE INDEX IF NOT EXISTS idx_insight_lote ON insight_comercial(lote_nocturno);
+
+    -- 24. PATRON_DETECTADO (cross-agent lateral pattern detection)
+    CREATE TABLE IF NOT EXISTS patron_detectado (
+      id TEXT PRIMARY KEY,
+      tipo TEXT NOT NULL CHECK(tipo IN (
+        'tendencia_vertical','movimiento_holding','conflicto_inventario',
+        'senal_competitiva','correlacion_winloss','concentracion_riesgo'
+      )),
+      descripcion TEXT NOT NULL,
+      datos_json TEXT,
+      sample_size INTEGER,
+      confianza REAL CHECK(confianza BETWEEN 0 AND 1),
+      personas_afectadas TEXT,
+      cuentas_afectadas TEXT,
+      nivel_minimo TEXT NOT NULL CHECK(nivel_minimo IN ('ae','gerente','director','vp')),
+      accion_recomendada TEXT,
+      activo INTEGER DEFAULT 1,
+      fecha_deteccion TEXT DEFAULT (datetime('now')),
+      lote_nocturno TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_patron_tipo ON patron_detectado(tipo);
+    CREATE INDEX IF NOT EXISTS idx_patron_nivel ON patron_detectado(nivel_minimo);
+    CREATE INDEX IF NOT EXISTS idx_patron_activo ON patron_detectado(activo);
   `);
 
   // Note: No FTS5 delete trigger. External content FTS5 tables corrupt when

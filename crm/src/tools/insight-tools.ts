@@ -9,6 +9,7 @@
 import { getDatabase } from "../db.js";
 import type { ToolContext } from "./index.js";
 import { scopeFilter } from "./helpers.js";
+import { draftProposalFromInsight } from "../proposal-drafter.js";
 
 // ---------------------------------------------------------------------------
 // consultar_insights
@@ -91,9 +92,9 @@ export function actuar_insight(
   if (!insightId) {
     return JSON.stringify({ error: "insight_id es requerido." });
   }
-  if (!accion || !["aceptar", "descartar"].includes(accion)) {
+  if (!accion || !["aceptar", "descartar", "convertir"].includes(accion)) {
     return JSON.stringify({
-      error: "accion debe ser 'aceptar' o 'descartar'.",
+      error: "accion debe ser 'aceptar', 'descartar', o 'convertir'.",
     });
   }
 
@@ -123,6 +124,24 @@ export function actuar_insight(
       mensaje: `Insight "${insight.titulo}" aceptado. Tómalo en cuenta para tu siguiente interacción con el cliente.`,
       insight_id: insightId,
       estado_nuevo: "aceptado",
+    });
+  }
+
+  if (accion === "convertir") {
+    const result = draftProposalFromInsight(insightId);
+    if ("error" in result) {
+      return JSON.stringify({ error: result.error });
+    }
+    return JSON.stringify({
+      mensaje: `Borrador de propuesta generado: "${result.titulo}"${result.valor_estimado ? ` por $${(result.valor_estimado / 1e6).toFixed(1)}M` : ""}.`,
+      propuesta_id: result.propuesta_id,
+      titulo: result.titulo,
+      valor_estimado: result.valor_estimado,
+      medios: result.medios,
+      razonamiento: result.agente_razonamiento,
+      confianza: result.confianza,
+      insight_id: insightId,
+      estado_nuevo: "convertido",
     });
   }
 
@@ -223,5 +242,130 @@ export function consultar_insights_equipo(
       aceptados: r.aceptados,
       descartados: r.descartados,
     })),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// revisar_borrador
+// ---------------------------------------------------------------------------
+
+export function revisar_borrador(
+  args: Record<string, unknown>,
+  ctx: ToolContext,
+): string {
+  const db = getDatabase();
+  const propuestaId = args.propuesta_id as string;
+  if (!propuestaId)
+    return JSON.stringify({ error: "propuesta_id es requerido." });
+
+  const scope = scopeFilter(ctx, "p.ae_id");
+  const prop = db
+    .prepare(
+      `SELECT p.id, p.titulo, p.valor_estimado, p.medios, p.tipo_oportunidad,
+              p.gancho_temporal, p.fecha_vuelo_inicio, p.fecha_vuelo_fin,
+              p.agente_razonamiento, p.confianza, p.insight_origen_id, p.etapa,
+              c.nombre AS cuenta_nombre, c.vertical
+       FROM propuesta p
+       LEFT JOIN cuenta c ON p.cuenta_id = c.id
+       WHERE p.id = ? AND p.etapa = 'borrador_agente' ${scope.where}`,
+    )
+    .get(propuestaId, ...scope.params) as any;
+
+  if (!prop) {
+    return JSON.stringify({
+      error: `No encontré borrador "${propuestaId}" o no tienes acceso.`,
+    });
+  }
+
+  return JSON.stringify({
+    propuesta_id: prop.id,
+    titulo: prop.titulo,
+    cuenta: prop.cuenta_nombre,
+    vertical: prop.vertical,
+    valor_estimado: prop.valor_estimado,
+    medios: prop.medios,
+    tipo_oportunidad: prop.tipo_oportunidad,
+    gancho_temporal: prop.gancho_temporal,
+    fecha_vuelo_inicio: prop.fecha_vuelo_inicio,
+    fecha_vuelo_fin: prop.fecha_vuelo_fin,
+    razonamiento: prop.agente_razonamiento,
+    confianza: prop.confianza,
+    insight_origen_id: prop.insight_origen_id,
+    etapa: prop.etapa,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// modificar_borrador
+// ---------------------------------------------------------------------------
+
+export function modificar_borrador(
+  args: Record<string, unknown>,
+  ctx: ToolContext,
+): string {
+  const db = getDatabase();
+  const propuestaId = args.propuesta_id as string;
+  if (!propuestaId)
+    return JSON.stringify({ error: "propuesta_id es requerido." });
+
+  const scope = scopeFilter(ctx, "p.ae_id");
+  const prop = db
+    .prepare(
+      `SELECT p.* FROM propuesta p WHERE p.id = ? AND p.etapa = 'borrador_agente' ${scope.where}`,
+    )
+    .get(propuestaId, ...scope.params) as any;
+  if (!prop) {
+    return JSON.stringify({
+      error: `No encontré borrador "${propuestaId}" o no tienes acceso.`,
+    });
+  }
+
+  const updates: string[] = [];
+  const params: unknown[] = [];
+
+  for (const field of [
+    "titulo",
+    "medios",
+    "tipo_oportunidad",
+    "gancho_temporal",
+    "fecha_vuelo_inicio",
+    "fecha_vuelo_fin",
+  ]) {
+    if (args[field] !== undefined) {
+      updates.push(`${field} = ?`);
+      params.push(args[field]);
+    }
+  }
+  if (args.valor_estimado !== undefined) {
+    updates.push("valor_estimado = ?");
+    params.push(args.valor_estimado);
+  }
+
+  const aceptar = args.aceptar === true;
+  if (aceptar) {
+    updates.push("etapa = 'en_preparacion'");
+    updates.push("fecha_ultima_actividad = ?");
+    params.push(new Date().toISOString());
+  }
+
+  if (updates.length === 0) {
+    return JSON.stringify({
+      error:
+        "No se proporcionaron cambios. Usa campos como titulo, valor_estimado, medios, o aceptar=true para promover a en_preparacion.",
+    });
+  }
+
+  params.push(propuestaId);
+  db.prepare(`UPDATE propuesta SET ${updates.join(", ")} WHERE id = ?`).run(
+    ...params,
+  );
+
+  const action = aceptar
+    ? "Borrador promovido a en_preparacion"
+    : "Borrador modificado";
+  return JSON.stringify({
+    mensaje: `${action}.`,
+    propuesta_id: propuestaId,
+    etapa: aceptar ? "en_preparacion" : "borrador_agente",
   });
 }

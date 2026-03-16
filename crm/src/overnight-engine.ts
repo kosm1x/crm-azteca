@@ -17,6 +17,7 @@ import { getDatabase } from "./db.js";
 import { logger } from "./logger.js";
 import { comparePeers } from "./analysis/peer-comparison.js";
 import { getDaysSinceActivity } from "./analysis/media-mix.js";
+import { detectCrossAgentPatterns } from "./cross-intelligence.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -514,10 +515,23 @@ export function runOvernightAnalysis(): OvernightResult {
 
   runAll();
 
+  // Post-analyzer: cross-agent pattern detection
+  const patterns = detectCrossAgentPatterns(lote);
+
   const total = calendar + inventory + gap + crosssell + market;
 
   logger.info(
-    { lote, calendar, inventory, gap, crosssell, market, total, expired },
+    {
+      lote,
+      calendar,
+      inventory,
+      gap,
+      crosssell,
+      market,
+      total,
+      expired,
+      patterns: patterns.total,
+    },
     "Overnight analysis completed",
   );
 
