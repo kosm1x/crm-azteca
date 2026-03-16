@@ -11,6 +11,8 @@ import {
   isGoogleEnabled,
   getDriveClient,
   getDriveWriteClient,
+  getSlidesClient,
+  getSheetsClient,
 } from "../google-auth.js";
 import { getPersonaEmail } from "./helpers.js";
 import type { ToolContext } from "./index.js";
@@ -222,16 +224,77 @@ export async function crear_documento_drive(
     });
     const webLink = updated.data.webViewLink ?? null;
 
-    // If content provided, update the document body
-    if (contenido && tipoStr === "documento") {
-      // For Google Docs, update via media upload (plain text → converted to Doc format)
-      await drive.files.update({
-        fileId,
-        media: {
-          mimeType: "text/plain",
-          body: contenido,
-        },
-      });
+    // Populate content based on document type
+    if (contenido) {
+      try {
+        if (tipoStr === "documento") {
+          // Google Docs: update via media upload (plain text → Doc format)
+          await drive.files.update({
+            fileId,
+            media: { mimeType: "text/plain", body: contenido },
+          });
+        } else if (tipoStr === "presentacion") {
+          // Google Slides: create slides from content sections
+          const slides = getSlidesClient(email);
+          // Split content by double newlines into sections (title = first line, rest = body per slide)
+          const sections = contenido.split(/\n\n+/).filter((s) => s.trim());
+          const requests: any[] = [];
+          for (let i = 0; i < sections.length; i++) {
+            const lines = sections[i].split("\n");
+            const slideTitle = lines[0]?.trim() || `Slide ${i + 1}`;
+            const slideBody = lines.slice(1).join("\n").trim();
+            const slideId = `slide_${i}`;
+            const titleId = `title_${i}`;
+            const bodyId = `body_${i}`;
+
+            requests.push({
+              createSlide: {
+                objectId: slideId,
+                insertionIndex: i + 1, // after the default title slide
+                slideLayoutReference: { predefinedLayout: "TITLE_AND_BODY" },
+                placeholderIdMappings: [
+                  { layoutPlaceholder: { type: "TITLE" }, objectId: titleId },
+                  { layoutPlaceholder: { type: "BODY" }, objectId: bodyId },
+                ],
+              },
+            });
+            requests.push({
+              insertText: { objectId: titleId, text: slideTitle },
+            });
+            if (slideBody) {
+              requests.push({
+                insertText: { objectId: bodyId, text: slideBody },
+              });
+            }
+          }
+          if (requests.length > 0) {
+            await slides.presentations.batchUpdate({
+              presentationId: fileId,
+              requestBody: { requests },
+            });
+          }
+        } else if (tipoStr === "hoja_de_calculo") {
+          // Google Sheets: write rows from content (tab or comma separated)
+          const sheets = getSheetsClient(email);
+          const rows = contenido
+            .split("\n")
+            .filter((r) => r.trim())
+            .map((row) =>
+              row.includes("\t") ? row.split("\t") : row.split(","),
+            );
+          if (rows.length > 0) {
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: fileId,
+              range: "A1",
+              valueInputOption: "USER_ENTERED",
+              requestBody: { values: rows },
+            });
+          }
+        }
+      } catch {
+        // Content population failed — file was created but is empty.
+        // Non-fatal: return the link and let the user edit manually.
+      }
     }
 
     return JSON.stringify({

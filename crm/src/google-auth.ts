@@ -21,6 +21,8 @@ const DRIVE_READONLY_SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
 ];
 const DRIVE_FULL_SCOPES = ["https://www.googleapis.com/auth/drive"];
+const SLIDES_SCOPES = ["https://www.googleapis.com/auth/presentations"];
+const SHEETS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
 
 /** Returns true if Google Workspace integration is configured. */
 export function isGoogleEnabled(): boolean {
@@ -103,4 +105,28 @@ export function getDriveWriteClient(impersonateEmail: string) {
     subject: impersonateEmail,
   });
   return google.drive({ version: "v3", auth });
+}
+
+/** Get a Google Slides client for creating/editing presentations. */
+export function getSlidesClient(impersonateEmail: string) {
+  const key = getServiceAccountKey();
+  const auth = new JWT({
+    email: key.client_email,
+    key: key.private_key,
+    scopes: SLIDES_SCOPES,
+    subject: impersonateEmail,
+  });
+  return google.slides({ version: "v1", auth });
+}
+
+/** Get a Google Sheets client for creating/editing spreadsheets. */
+export function getSheetsClient(impersonateEmail: string) {
+  const key = getServiceAccountKey();
+  const auth = new JWT({
+    email: key.client_email,
+    key: key.private_key,
+    scopes: SHEETS_SCOPES,
+    subject: impersonateEmail,
+  });
+  return google.sheets({ version: "v4", auth });
 }
