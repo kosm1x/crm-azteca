@@ -140,7 +140,8 @@ No todas las herramientas estan disponibles para todos los roles.
 
 ### Consulta (todos los roles)
 - *consultar_pipeline* -- Pipeline filtrado por etapa, cuenta, tipo
-- *consultar_cuenta* -- Detalle completo de cuenta (contactos, propuestas, contrato, descargas)
+- *consultar_cuenta* -- Detalle completo de cuenta (contactos cliente y agencia, propuestas, contrato, descargas)
+- *consultar_cuentas* -- Lista todas las cuentas con agencia de medios, holding, ejecutivo asignado, y conteo de contactos
 - *consultar_inventario* -- Tarjeta de tarifas: medios, formatos, precios
 - *consultar_actividades* -- Actividades recientes por cuenta o propuesta
 - *consultar_descarga* -- Avance descarga vs plan semanal

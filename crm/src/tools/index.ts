@@ -19,6 +19,7 @@ import {
   consultar_descarga,
   consultar_cuota,
   consultar_cuenta,
+  consultar_cuentas,
   consultar_actividades,
   consultar_inventario,
 } from "./consulta.js";
@@ -363,6 +364,24 @@ const TOOL_CONSULTAR_CUENTA: ToolDefinition = {
         cuenta_nombre: { type: "string", description: "Nombre de la cuenta" },
       },
       required: ["cuenta_nombre"],
+    },
+  },
+};
+
+const TOOL_CONSULTAR_CUENTAS: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "consultar_cuentas",
+    description:
+      "Lista todas las cuentas (clientes/anunciantes) con su agencia de medios, holding, ejecutivo asignado, y conteo de contactos cliente vs agencia.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Necesitas una vision general de todas las cuentas\n" +
+      "- Quieres saber que cuentas trabajan con que agencia\n" +
+      "- Buscas cuentas por vertical o agencia\n" +
+      "- El usuario pregunta por 'las agencias', 'con que agencias trabajamos', 'listado de cuentas'",
+    parameters: {
+      type: "object",
+      properties: {},
     },
   },
 };
@@ -1303,6 +1322,7 @@ const AE_TOOLS: ToolDefinition[] = [
   TOOL_CONSULTAR_AGENDA,
   TOOL_CONSULTAR_PIPELINE,
   TOOL_CONSULTAR_CUENTA,
+  TOOL_CONSULTAR_CUENTAS,
   TOOL_CONSULTAR_INVENTARIO,
   TOOL_CONSULTAR_ACTIVIDADES,
   TOOL_CONSULTAR_DESCARGA,
@@ -1330,6 +1350,7 @@ const AE_TOOLS: ToolDefinition[] = [
 const GERENTE_TOOLS: ToolDefinition[] = [
   TOOL_CONSULTAR_PIPELINE,
   TOOL_CONSULTAR_CUENTA,
+  TOOL_CONSULTAR_CUENTAS,
   TOOL_CONSULTAR_INVENTARIO,
   TOOL_CONSULTAR_ACTIVIDADES,
   TOOL_CONSULTAR_DESCARGA,
@@ -1371,6 +1392,7 @@ const RELATIONSHIP_TOOLS: ToolDefinition[] = [
 const DIRECTOR_TOOLS: ToolDefinition[] = [
   TOOL_CONSULTAR_PIPELINE,
   TOOL_CONSULTAR_CUENTA,
+  TOOL_CONSULTAR_CUENTAS,
   TOOL_CONSULTAR_INVENTARIO,
   TOOL_CONSULTAR_ACTIVIDADES,
   TOOL_CONSULTAR_DESCARGA,
@@ -1406,6 +1428,7 @@ const DIRECTOR_TOOLS: ToolDefinition[] = [
 const VP_TOOLS: ToolDefinition[] = [
   TOOL_CONSULTAR_PIPELINE,
   TOOL_CONSULTAR_CUENTA,
+  TOOL_CONSULTAR_CUENTAS,
   TOOL_CONSULTAR_INVENTARIO,
   TOOL_CONSULTAR_ACTIVIDADES,
   TOOL_CONSULTAR_DESCARGA,
@@ -1465,6 +1488,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   consultar_descarga,
   consultar_cuota,
   consultar_cuenta,
+  consultar_cuentas,
   consultar_actividades,
   consultar_inventario,
   enviar_email_seguimiento,

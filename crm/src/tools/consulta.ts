@@ -50,7 +50,8 @@ export function consultar_pipeline(
   const rows = db
     .prepare(
       `
-    SELECT p.titulo, c.nombre AS cuenta, p.valor_estimado, p.etapa,
+    SELECT p.titulo, c.nombre AS cuenta, c.agencia_medios, c.holding_agencia,
+           p.valor_estimado, p.etapa,
            p.dias_sin_actividad, p.fecha_ultima_actividad, p.es_mega,
            per.nombre AS ae_nombre
     FROM propuesta p
@@ -75,11 +76,54 @@ export function consultar_pipeline(
     propuestas: rows.map((r) => ({
       titulo: r.titulo,
       cuenta: r.cuenta,
+      agencia: r.agencia_medios || null,
       valor: r.valor_estimado,
       etapa: r.etapa,
       dias_sin_actividad: r.dias_sin_actividad,
       es_mega: r.es_mega === 1,
       ejecutivo: r.ae_nombre,
+    })),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// consultar_cuentas (account overview with agency info)
+// ---------------------------------------------------------------------------
+
+export function consultar_cuentas(
+  args: Record<string, unknown>,
+  ctx: ToolContext,
+): string {
+  const db = getDatabase();
+  const scope = scopeFilter(ctx, "c.ae_id");
+
+  const rows = db
+    .prepare(
+      `SELECT c.nombre, c.tipo, c.vertical, c.agencia_medios, c.holding_agencia,
+              c.es_fundador, c.años_relacion,
+              (SELECT COUNT(*) FROM propuesta p WHERE p.cuenta_id = c.id AND p.etapa NOT IN ('completada','perdida','cancelada')) as propuestas_activas,
+              (SELECT COUNT(*) FROM contacto co WHERE co.cuenta_id = c.id AND co.es_agencia = 0) as contactos_cliente,
+              (SELECT COUNT(*) FROM contacto co WHERE co.cuenta_id = c.id AND co.es_agencia = 1) as contactos_agencia,
+              per.nombre as ejecutivo
+       FROM cuenta c
+       LEFT JOIN persona per ON per.id = c.ae_id
+       WHERE 1=1 ${scope.where}
+       ORDER BY c.nombre`,
+    )
+    .all(...scope.params) as any[];
+
+  return JSON.stringify({
+    total_cuentas: rows.length,
+    cuentas: rows.map((r) => ({
+      nombre: r.nombre,
+      vertical: r.vertical,
+      agencia_medios: r.agencia_medios || null,
+      holding: r.holding_agencia || null,
+      ejecutivo: r.ejecutivo,
+      propuestas_activas: r.propuestas_activas,
+      contactos_cliente: r.contactos_cliente,
+      contactos_agencia: r.contactos_agencia,
+      es_fundador: r.es_fundador === 1,
     })),
   });
 }
