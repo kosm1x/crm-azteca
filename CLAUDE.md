@@ -19,15 +19,17 @@ Agentic CRM for media ad sales. NanoClaw engine at `engine/`, all CRM code at `c
 | `crm/src/warmth.ts` | Executive relationship warmth scoring (recency + frequency + quality) |
 | `crm/src/warmth-scheduler.ts` | Nightly warmth recomputation (4 AM MX via IPC) |
 | `crm/src/memory/` | Pluggable memory service (Hindsight sidecar or SQLite fallback) |
-| `crm/src/tools/index.ts` | Tool registry: 44 tools, role-based filtering |
+| `crm/src/tools/index.ts` | Tool registry: 45 tools, role-based filtering |
 | `crm/src/tools/relaciones.ts` | 7 Dir/VP relationship tools (warmth, milestones, interactions) |
 | `crm/src/tools/memoria.ts` | 3 memory tools (guardar, buscar, reflexionar) |
+| `crm/src/tools/drive.ts` | Drive tools: list, read, create docs/sheets/slides with content |
+| `crm/src/google-auth.ts` | Google JWT auth: Gmail (send+compose+read), Calendar, Drive, Slides API, Sheets API |
 | `crm/src/dashboard/server.ts` | Dashboard HTTP server + router (7 API endpoints) |
-| `crm/groups/global.md` | Global CLAUDE.md template (schema, queries, rules) |
-| `crm/groups/ae.md` | AE persona template (33 tools) |
-| `crm/groups/manager.md` | Manager persona template (27 tools) |
-| `crm/groups/director.md` | Director persona template (33 tools, incl. 7 relationship) |
-| `crm/groups/vp.md` | VP persona template (31 tools, incl. 7 relationship) |
+| `crm/groups/global.md` | Global CLAUDE.md template (schema, queries, rules, scope guard, disambiguation) |
+| `crm/groups/ae.md` | AE persona template (34 tools) |
+| `crm/groups/manager.md` | Manager persona template (28 tools) |
+| `crm/groups/director.md` | Director persona template (38 tools, incl. 7 relationship + 4 email) |
+| `crm/groups/vp.md` | VP persona template (36 tools, incl. 7 relationship + 4 email) |
 
 ### Engine Hook Points (DO NOT modify beyond these 5 files)
 
@@ -89,8 +91,8 @@ git subtree pull --prefix=engine https://github.com/qwibitai/nanoclaw.git main -
 ### Message Flow
 
 ```
-WhatsApp → engine (NanoClaw) → Direct tools (44 CRM tools via inference adapter)
-                                    ├── Role-based tool filtering (AE:33, Ger:27, Dir:33, VP:31)
+WhatsApp → engine (NanoClaw) → Direct tools (45 CRM tools via inference adapter)
+                                    ├── Role-based tool filtering (AE:34, Ger:28, Dir:38, VP:36)
                                     ├── Google Workspace (Gmail, Drive, Calendar)
                                     ├── Hybrid RAG (vector + FTS5 keyword + RRF fusion)
                                     ├── Long-term memory (Hindsight or SQLite fallback)

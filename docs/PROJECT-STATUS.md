@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-15 (Phase 9 complete)
+> Last updated: 2026-03-16 (Google Workspace integration + agent hardening)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`
 
 ## Phase Tracker
@@ -177,10 +177,10 @@
 
 ## Cumulative Evolution
 
-| Metric | Post-Phase 9 (Now) | Phase 14 (Target) | Remaining |
-|--------|-------------------|-------------------|-----------|
+| Metric | Current (Now) | Phase 14 (Target) | Remaining |
+|--------|--------------|-------------------|-----------|
 | SQLite tables | 21 | 23 | +2 |
-| CRM tools | 44 | ~55 | +11 |
+| CRM tools | 45 | ~55 | +10 |
 | Test files | 29 | ~35 | +6 |
 | Tests passing | 608 | 900+ | +292 |
 | Persona templates | 8 | 8 (dynamic) | — |
@@ -243,7 +243,7 @@ These rules hold across ALL phases:
 | Dashscope (Qwen 3.5 Plus) | Active | Primary inference + text-embedding-v3 for RAG |
 | MiniMax | Active | Fallback inference |
 | Brave Search API | Active | Web search tool |
-| Google Workspace | Active | Email, Calendar, Drive |
+| Google Workspace | **Active** | Email (send+read), Calendar (events+read), Drive (full), Slides API, Sheets API. Service account: crm-azteca-agent@crm-azteca.iam.gserviceaccount.com. Test user: fede@eurekamd.net |
 | WhatsApp (Baileys) | Active | Main risk — unofficial API |
 | Whisper (transcription) | **Active** | Groq `whisper-large-v3` configured |
 | Hindsight | **Available** | Long-term memory sidecar. `crm-ctl hindsight-start` to activate |
@@ -255,7 +255,7 @@ These rules hold across ALL phases:
 
 - **Server**: Test VPS, Node 22.22.0, Docker 29.3.0
 - **Service**: `agentic-crm.service` (systemd), managed via `crm-ctl`
-- **Container**: `agentic-crm-agent:latest` (rebuilt 2026-03-15)
+- **Container**: `agentic-crm-agent:latest` (rebuilt 2026-03-16)
 - **Hindsight**: `crm-hindsight` Docker sidecar (port 8888 API, 9999 UI), persistent volume at `data/hindsight/`
 - **WhatsApp**: Authenticated (5215530331051)
 - **Dashboard**: Port 3000 open (UFW), short links via Bitly
@@ -266,6 +266,14 @@ These rules hold across ALL phases:
 
 | Commit | Description |
 |--------|-------------|
+| `1833241` | feat: disambiguation protocol in agent system prompt |
+| `e3fe247` | fix: Slides object IDs >= 5 chars (Google API requirement) |
+| `a9af920` | fix: split Gmail scopes — send-only vs compose, fallback on draft fail |
+| `ecbefd8` | fix: add email send/draft tools to Director and VP roles |
+| `286621d` | feat: populate Slides and Sheets content on creation (Slides API + Sheets API) |
+| `6b81c1b` | feat: crear_documento_drive — create Google Docs, Sheets, Slides |
+| `a1604d4` | fix: add GOOGLE_* to secrets pipeline (3-place pattern) |
+| `056357e` | feat: add full Drive scope + getDriveWriteClient |
 | `99062e4` | feat: Phase 9 Session 9 — briefing integration + nightly warmth recomputation |
 | `0447445` | feat: Phase 9 Session 8 — relationship tools + warmth computation (7 tools, 44 total) |
 | `7ff8ca4` | feat: Phase 9 Session 7 — relationship schema (3 tables + contacto enhancement) |
