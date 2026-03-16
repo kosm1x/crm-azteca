@@ -711,9 +711,9 @@ const TOOL_CREAR_DOCUMENTO_DRIVE: ToolDefinition = {
       "- El usuario pide crear un documento, reporte, presentacion, o spreadsheet\n" +
       "- Necesitas preparar un entregable formal (propuesta, briefing, analisis)\n\n" +
       "TIPOS:\n" +
-      "- 'documento' — Google Docs (reportes, propuestas, minutas)\n" +
-      "- 'hoja_de_calculo' — Google Sheets (datos, comparativas, presupuestos)\n" +
-      "- 'presentacion' — Google Slides (decks, presentaciones a clientes)",
+      "- 'documento' — Google Docs (reportes, propuestas, minutas). Contenido: texto plano\n" +
+      "- 'hoja_de_calculo' — Google Sheets (datos, comparativas, presupuestos). Contenido: primera linea = encabezados, resto = datos. Separa columnas con TAB o coma. Ejemplo: 'Cuenta\\tValor\\tEtapa\\nCoca-Cola\\t$15M\\tEn negociacion'. Encabezados se formatean automaticamente en negritas con fondo gris\n" +
+      "- 'presentacion' — Google Slides (decks, presentaciones a clientes). Contenido: secciones separadas por doble salto de linea. Primera linea de cada seccion = titulo del slide, resto = cuerpo",
     parameters: {
       type: "object",
       properties: {
@@ -729,7 +729,7 @@ const TOOL_CREAR_DOCUMENTO_DRIVE: ToolDefinition = {
         contenido: {
           type: "string",
           description:
-            "Contenido inicial en texto plano (solo para tipo documento). Opcional.",
+            "Contenido inicial. Para documento: texto plano. Para hoja_de_calculo: lineas separadas por \\n, columnas por TAB (\\t) — primera linea son los encabezados. Para presentacion: secciones separadas por \\n\\n, primera linea = titulo del slide.",
         },
         carpeta_id: {
           type: "string",

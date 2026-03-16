@@ -283,11 +283,65 @@ export async function crear_documento_drive(
               row.includes("\t") ? row.split("\t") : row.split(","),
             );
           if (rows.length > 0) {
+            // Write values
             await sheets.spreadsheets.values.update({
               spreadsheetId: fileId,
               range: "A1",
               valueInputOption: "USER_ENTERED",
               requestBody: { values: rows },
+            });
+
+            // Format: bold header row, freeze it, auto-resize columns
+            const numCols = Math.max(...rows.map((r) => r.length));
+            await sheets.spreadsheets.batchUpdate({
+              spreadsheetId: fileId,
+              requestBody: {
+                requests: [
+                  // Bold header row
+                  {
+                    repeatCell: {
+                      range: {
+                        sheetId: 0,
+                        startRowIndex: 0,
+                        endRowIndex: 1,
+                      },
+                      cell: {
+                        userEnteredFormat: {
+                          textFormat: { bold: true },
+                          backgroundColor: {
+                            red: 0.9,
+                            green: 0.9,
+                            blue: 0.95,
+                          },
+                        },
+                      },
+                      fields:
+                        "userEnteredFormat.textFormat.bold,userEnteredFormat.backgroundColor",
+                    },
+                  },
+                  // Freeze header row
+                  {
+                    updateSheetProperties: {
+                      properties: {
+                        sheetId: 0,
+                        gridProperties: { frozenRowCount: 1 },
+                      },
+                      fields: "gridProperties.frozenRowCount",
+                    },
+                  },
+                  // Auto-resize columns to fit content
+                  {
+                    autoResizeDimensions: {
+                      dimensions: {
+                        sheetId: 0,
+                        dimension: "COLUMNS",
+                        startIndex: 0,
+                        endIndex: numCols,
+                      },
+                    },
+                  },
+                ],
+              },
             });
           }
         }
