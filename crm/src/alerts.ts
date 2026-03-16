@@ -1,14 +1,14 @@
 /**
  * Alert Evaluators
  *
- * 5 pure-SQL alert evaluators that detect conditions requiring attention.
+ * 8 alert evaluators that detect conditions requiring attention.
  * Each returns AlertResult[] with WhatsApp-formatted messages.
  * Deduplication via alerta_log prevents duplicate alerts within the same day.
  */
 
-import { getDatabase } from './db.js';
-import { getPersonById, getManager, getDirector } from './hierarchy.js';
-import type { Persona } from './hierarchy.js';
+import { getDatabase } from "./db.js";
+import { getPersonById, getManager, getDirector } from "./hierarchy.js";
+import type { Persona } from "./hierarchy.js";
 
 export interface AlertResult {
   alerta_tipo: string;
@@ -38,7 +38,7 @@ function findVp(personaId: string): Persona | null {
   for (let i = 0; i < 5; i++) {
     const p = getPersonById(current);
     if (!p) return null;
-    if (p.rol === 'vp') return p;
+    if (p.rol === "vp") return p;
     if (!p.reporta_a) return null;
     current = p.reporta_a;
   }
@@ -51,14 +51,18 @@ function findVp(personaId: string): Persona | null {
 
 export function alertPropuestasEstancadas(): AlertResult[] {
   const db = getDatabase();
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT p.id, p.titulo, p.dias_sin_actividad, p.valor_estimado, p.etapa, p.ae_id,
            c.nombre AS cuenta_nombre
     FROM propuesta p
     LEFT JOIN cuenta c ON p.cuenta_id = c.id
     WHERE p.dias_sin_actividad > 7
       AND p.etapa NOT IN ('completada', 'perdida', 'cancelada')
-  `).all() as any[];
+  `,
+    )
+    .all() as any[];
 
   const results: AlertResult[] = [];
 
@@ -66,17 +70,18 @@ export function alertPropuestasEstancadas(): AlertResult[] {
     const aeFolder = folderOf(row.ae_id);
     if (aeFolder) {
       const valor = row.valor_estimado
-        ? `$${Number(row.valor_estimado).toLocaleString('es-MX')}`
-        : 'sin valor';
+        ? `$${Number(row.valor_estimado).toLocaleString("es-MX")}`
+        : "sin valor";
       results.push({
-        alerta_tipo: 'propuesta_estancada',
+        alerta_tipo: "propuesta_estancada",
         entidad_id: row.id,
         grupo_destino_folder: aeFolder,
-        mensaje: `*Alerta: Propuesta Estancada*\n\nPropuesta "${row.titulo}" lleva ${row.dias_sin_actividad} dias sin actividad.\n`
-          + `\u2022 Cuenta: ${row.cuenta_nombre ?? 'N/A'}\n`
-          + `\u2022 Etapa: ${row.etapa}\n`
-          + `\u2022 Valor: ${valor}\n\n`
-          + `Accion recomendada: registrar actividad o actualizar etapa.`,
+        mensaje:
+          `*Alerta: Propuesta Estancada*\n\nPropuesta "${row.titulo}" lleva ${row.dias_sin_actividad} dias sin actividad.\n` +
+          `\u2022 Cuenta: ${row.cuenta_nombre ?? "N/A"}\n` +
+          `\u2022 Etapa: ${row.etapa}\n` +
+          `\u2022 Valor: ${valor}\n\n` +
+          `Accion recomendada: registrar actividad o actualizar etapa.`,
       });
     }
 
@@ -86,14 +91,15 @@ export function alertPropuestasEstancadas(): AlertResult[] {
       const mgrFolder = folderOf(managerId);
       if (mgrFolder) {
         results.push({
-          alerta_tipo: 'propuesta_estancada_escalada',
+          alerta_tipo: "propuesta_estancada_escalada",
           entidad_id: row.id,
           grupo_destino_folder: mgrFolder,
-          mensaje: `*Alerta Escalada: Propuesta Estancada >14 dias*\n\nPropuesta "${row.titulo}" lleva ${row.dias_sin_actividad} dias sin actividad.\n`
-            + `\u2022 Cuenta: ${row.cuenta_nombre ?? 'N/A'}\n`
-            + `\u2022 Ejecutivo: ${getPersonById(row.ae_id)?.nombre ?? 'N/A'}\n`
-            + `\u2022 Etapa: ${row.etapa}\n\n`
-            + `Accion recomendada: revisar con el Ejecutivo.`,
+          mensaje:
+            `*Alerta Escalada: Propuesta Estancada >14 dias*\n\nPropuesta "${row.titulo}" lleva ${row.dias_sin_actividad} dias sin actividad.\n` +
+            `\u2022 Cuenta: ${row.cuenta_nombre ?? "N/A"}\n` +
+            `\u2022 Ejecutivo: ${getPersonById(row.ae_id)?.nombre ?? "N/A"}\n` +
+            `\u2022 Etapa: ${row.etapa}\n\n` +
+            `Accion recomendada: revisar con el Ejecutivo.`,
         });
       }
     }
@@ -111,10 +117,14 @@ export function alertCuotaBaja(): AlertResult[] {
   const now = new Date();
   const year = now.getFullYear();
   // ISO week approximation
-  const dayOfYear = Math.floor((now.getTime() - new Date(year, 0, 1).getTime()) / 86400000);
+  const dayOfYear = Math.floor(
+    (now.getTime() - new Date(year, 0, 1).getTime()) / 86400000,
+  );
   const week = Math.max(1, Math.ceil((dayOfYear + 1) / 7));
 
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT q.persona_id, q.porcentaje, q.meta_total, q.logro,
            p.nombre AS persona_nombre, p.whatsapp_group_folder
     FROM cuota q
@@ -122,21 +132,24 @@ export function alertCuotaBaja(): AlertResult[] {
     WHERE q.año = ? AND q.semana = ?
       AND q.porcentaje < 80
       AND p.activo = 1
-  `).all(year, week) as any[];
+  `,
+    )
+    .all(year, week) as any[];
 
   const results: AlertResult[] = [];
 
   for (const row of rows) {
     if (!row.whatsapp_group_folder) continue;
     results.push({
-      alerta_tipo: 'cuota_baja',
+      alerta_tipo: "cuota_baja",
       entidad_id: `${row.persona_id}-${year}-w${week}`,
       grupo_destino_folder: row.whatsapp_group_folder,
-      mensaje: `*Alerta: Cuota por debajo del 80%*\n\n`
-        + `Tu cuota esta semana (S${week}) va al ${Math.round(row.porcentaje)}%.\n`
-        + `\u2022 Meta: $${Number(row.meta_total).toLocaleString('es-MX')}\n`
-        + `\u2022 Logro: $${Number(row.logro).toLocaleString('es-MX')}\n\n`
-        + `Accion recomendada: revisar propuestas activas y acelerar cierres.`,
+      mensaje:
+        `*Alerta: Cuota por debajo del 80%*\n\n` +
+        `Tu cuota esta semana (S${week}) va al ${Math.round(row.porcentaje)}%.\n` +
+        `\u2022 Meta: $${Number(row.meta_total).toLocaleString("es-MX")}\n` +
+        `\u2022 Logro: $${Number(row.logro).toLocaleString("es-MX")}\n\n` +
+        `Accion recomendada: revisar propuestas activas y acelerar cierres.`,
     });
   }
 
@@ -150,7 +163,9 @@ export function alertCuotaBaja(): AlertResult[] {
 export function alertDescargaGap(): AlertResult[] {
   const db = getDatabase();
   // Find cuentas where gap_acumulado has been growing for 3+ consecutive weeks
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     WITH recent AS (
       SELECT d.cuenta_id, d.semana, d.año, d.gap_acumulado,
              c.nombre AS cuenta_nombre, c.ae_id
@@ -171,7 +186,9 @@ export function alertDescargaGap(): AlertResult[] {
       AND r1.gap_acumulado > r2.gap_acumulado
       AND r2.gap_acumulado > r3.gap_acumulado
       AND r1.gap_acumulado > 0
-  `).all() as any[];
+  `,
+    )
+    .all() as any[];
 
   const results: AlertResult[] = [];
 
@@ -179,13 +196,14 @@ export function alertDescargaGap(): AlertResult[] {
     const aeFolder = folderOf(row.ae_id);
     if (aeFolder) {
       results.push({
-        alerta_tipo: 'descarga_gap',
+        alerta_tipo: "descarga_gap",
         entidad_id: row.cuenta_id,
         grupo_destino_folder: aeFolder,
-        mensaje: `*Alerta: Gap de Descarga Creciente*\n\n`
-          + `La cuenta "${row.cuenta_nombre}" tiene un gap acumulado creciente por 3+ semanas.\n`
-          + `\u2022 Gap actual: $${Number(row.gap_w1).toLocaleString('es-MX')}\n\n`
-          + `Accion recomendada: revisar plan de facturacion y hablar con el cliente.`,
+        mensaje:
+          `*Alerta: Gap de Descarga Creciente*\n\n` +
+          `La cuenta "${row.cuenta_nombre}" tiene un gap acumulado creciente por 3+ semanas.\n` +
+          `\u2022 Gap actual: $${Number(row.gap_w1).toLocaleString("es-MX")}\n\n` +
+          `Accion recomendada: revisar plan de facturacion y hablar con el cliente.`,
       });
     }
 
@@ -194,13 +212,14 @@ export function alertDescargaGap(): AlertResult[] {
     const mgrFolder = folderOf(managerId);
     if (mgrFolder) {
       results.push({
-        alerta_tipo: 'descarga_gap',
+        alerta_tipo: "descarga_gap",
         entidad_id: `${row.cuenta_id}-mgr`,
         grupo_destino_folder: mgrFolder,
-        mensaje: `*Alerta: Gap de Descarga Creciente*\n\n`
-          + `La cuenta "${row.cuenta_nombre}" (${getPersonById(row.ae_id)?.nombre ?? 'N/A'}) tiene gap creciente por 3+ semanas.\n`
-          + `\u2022 Gap actual: $${Number(row.gap_w1).toLocaleString('es-MX')}\n\n`
-          + `Accion recomendada: revisar con el Ejecutivo.`,
+        mensaje:
+          `*Alerta: Gap de Descarga Creciente*\n\n` +
+          `La cuenta "${row.cuenta_nombre}" (${getPersonById(row.ae_id)?.nombre ?? "N/A"}) tiene gap creciente por 3+ semanas.\n` +
+          `\u2022 Gap actual: $${Number(row.gap_w1).toLocaleString("es-MX")}\n\n` +
+          `Accion recomendada: revisar con el Ejecutivo.`,
       });
     }
   }
@@ -214,7 +233,9 @@ export function alertDescargaGap(): AlertResult[] {
 
 export function alertMegaDealMovimiento(): AlertResult[] {
   const db = getDatabase();
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT DISTINCT p.id, p.titulo, p.valor_estimado, p.etapa, p.ae_id,
            c.nombre AS cuenta_nombre, a.resumen AS ultima_actividad
     FROM propuesta p
@@ -224,7 +245,9 @@ export function alertMegaDealMovimiento(): AlertResult[] {
       AND p.etapa NOT IN ('completada', 'perdida', 'cancelada')
       AND a.fecha >= datetime('now', '-24 hours')
     ORDER BY a.fecha DESC
-  `).all() as any[];
+  `,
+    )
+    .all() as any[];
 
   const results: AlertResult[] = [];
   // Deduplicate by propuesta (DISTINCT may not catch all due to ORDER BY)
@@ -234,21 +257,22 @@ export function alertMegaDealMovimiento(): AlertResult[] {
     if (seen.has(row.id)) continue;
     seen.add(row.id);
 
-    const valor = `$${Number(row.valor_estimado).toLocaleString('es-MX')}`;
+    const valor = `$${Number(row.valor_estimado).toLocaleString("es-MX")}`;
 
     // Notify director
     const directorId = getDirector(row.ae_id);
     const dirFolder = folderOf(directorId);
     if (dirFolder) {
       results.push({
-        alerta_tipo: 'mega_deal_movimiento',
+        alerta_tipo: "mega_deal_movimiento",
         entidad_id: row.id,
         grupo_destino_folder: dirFolder,
-        mensaje: `*Alerta: Movimiento en Mega-Deal*\n\n`
-          + `"${row.titulo}" (${valor}) tiene actividad reciente.\n`
-          + `\u2022 Cuenta: ${row.cuenta_nombre ?? 'N/A'}\n`
-          + `\u2022 Etapa: ${row.etapa}\n`
-          + `\u2022 Ultima actividad: ${row.ultima_actividad?.slice(0, 100) ?? 'N/A'}\n`,
+        mensaje:
+          `*Alerta: Movimiento en Mega-Deal*\n\n` +
+          `"${row.titulo}" (${valor}) tiene actividad reciente.\n` +
+          `\u2022 Cuenta: ${row.cuenta_nombre ?? "N/A"}\n` +
+          `\u2022 Etapa: ${row.etapa}\n` +
+          `\u2022 Ultima actividad: ${row.ultima_actividad?.slice(0, 100) ?? "N/A"}\n`,
       });
     }
 
@@ -257,13 +281,14 @@ export function alertMegaDealMovimiento(): AlertResult[] {
     const vpFolder = vp?.whatsapp_group_folder ?? null;
     if (vpFolder && vpFolder !== dirFolder) {
       results.push({
-        alerta_tipo: 'mega_deal_movimiento',
+        alerta_tipo: "mega_deal_movimiento",
         entidad_id: `${row.id}-vp`,
         grupo_destino_folder: vpFolder,
-        mensaje: `*Alerta: Movimiento en Mega-Deal*\n\n`
-          + `"${row.titulo}" (${valor}) tiene actividad reciente.\n`
-          + `\u2022 Cuenta: ${row.cuenta_nombre ?? 'N/A'}\n`
-          + `\u2022 Etapa: ${row.etapa}\n`,
+        mensaje:
+          `*Alerta: Movimiento en Mega-Deal*\n\n` +
+          `"${row.titulo}" (${valor}) tiene actividad reciente.\n` +
+          `\u2022 Cuenta: ${row.cuenta_nombre ?? "N/A"}\n` +
+          `\u2022 Etapa: ${row.etapa}\n`,
       });
     }
   }
@@ -277,7 +302,9 @@ export function alertMegaDealMovimiento(): AlertResult[] {
 
 export function alertInactividadAe(): AlertResult[] {
   const db = getDatabase();
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT p.id, p.nombre, p.reporta_a,
            MAX(a.fecha) AS ultima_actividad,
            CAST(julianday('now') - julianday(COALESCE(MAX(a.fecha), '2000-01-01')) AS INTEGER) AS dias_inactivo
@@ -286,7 +313,9 @@ export function alertInactividadAe(): AlertResult[] {
     WHERE p.rol = 'ae' AND p.activo = 1
     GROUP BY p.id
     HAVING dias_inactivo >= 5
-  `).all() as any[];
+  `,
+    )
+    .all() as any[];
 
   const results: AlertResult[] = [];
 
@@ -295,12 +324,13 @@ export function alertInactividadAe(): AlertResult[] {
     if (!mgrFolder) continue;
 
     results.push({
-      alerta_tipo: 'inactividad_ae',
+      alerta_tipo: "inactividad_ae",
       entidad_id: row.id,
       grupo_destino_folder: mgrFolder,
-      mensaje: `*Alerta: Ejecutivo sin actividad*\n\n`
-        + `${row.nombre} lleva ${row.dias_inactivo} dias sin registrar actividad.\n\n`
-        + `Accion recomendada: revisar con el Ejecutivo.`,
+      mensaje:
+        `*Alerta: Ejecutivo sin actividad*\n\n` +
+        `${row.nombre} lleva ${row.dias_inactivo} dias sin registrar actividad.\n\n` +
+        `Accion recomendada: revisar con el Ejecutivo.`,
     });
   }
 
@@ -313,62 +343,219 @@ export function alertInactividadAe(): AlertResult[] {
 
 export function alertEventCountdown(): AlertResult[] {
   const db = getDatabase();
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT id, nombre, tipo, fecha_inicio, inventario_total, inventario_vendido, prioridad
     FROM crm_events
     WHERE date(fecha_inicio) BETWEEN date('now') AND date('now', '+30 days')
-  `).all() as any[];
+  `,
+    )
+    .all() as any[];
 
   const results: AlertResult[] = [];
 
   for (const row of rows) {
-    const diasPara = Math.ceil((new Date(row.fecha_inicio).getTime() - Date.now()) / 86400000);
+    const diasPara = Math.ceil(
+      (new Date(row.fecha_inicio).getTime() - Date.now()) / 86400000,
+    );
     let soldPct = 0;
 
     if (row.inventario_total && row.inventario_vendido) {
       try {
         const total = JSON.parse(row.inventario_total);
         const vendido = JSON.parse(row.inventario_vendido);
-        const totalUnits = Object.values(total).reduce((s: number, v: any) => s + Number(v), 0);
-        const soldUnits = Object.values(vendido).reduce((s: number, v: any) => s + Number(v), 0);
-        soldPct = totalUnits > 0 ? Math.round((soldUnits / totalUnits) * 100) : 0;
-      } catch { /* ignore */ }
+        const totalUnits = Object.values(total).reduce(
+          (s: number, v: any) => s + Number(v),
+          0,
+        );
+        const soldUnits = Object.values(vendido).reduce(
+          (s: number, v: any) => s + Number(v),
+          0,
+        );
+        soldPct =
+          totalUnits > 0 ? Math.round((soldUnits / totalUnits) * 100) : 0;
+      } catch {
+        /* ignore */
+      }
     }
 
     const disponible = 100 - soldPct;
 
     // Alert AEs about upcoming events with inventory info
-    const aes = db.prepare("SELECT id, whatsapp_group_folder FROM persona WHERE rol = 'ae' AND activo = 1 AND whatsapp_group_folder IS NOT NULL").all() as any[];
+    const aes = db
+      .prepare(
+        "SELECT id, whatsapp_group_folder FROM persona WHERE rol = 'ae' AND activo = 1 AND whatsapp_group_folder IS NOT NULL",
+      )
+      .all() as any[];
     for (const ae of aes) {
       results.push({
-        alerta_tipo: 'event_countdown',
+        alerta_tipo: "event_countdown",
         entidad_id: `${row.id}-${ae.id}`,
         grupo_destino_folder: ae.whatsapp_group_folder,
-        mensaje: `*Alerta: Evento Proximo*\n\n`
-          + `"${row.nombre}" (${row.tipo}) inicia en ${diasPara} dias.\n`
-          + `\u2022 Inventario disponible: ${disponible}%\n`
-          + `\u2022 Prioridad: ${row.prioridad}\n\n`
-          + `Accion recomendada: revisar oportunidades de venta para este evento.`,
+        mensaje:
+          `*Alerta: Evento Proximo*\n\n` +
+          `"${row.nombre}" (${row.tipo}) inicia en ${diasPara} dias.\n` +
+          `\u2022 Inventario disponible: ${disponible}%\n` +
+          `\u2022 Prioridad: ${row.prioridad}\n\n` +
+          `Accion recomendada: revisar oportunidades de venta para este evento.`,
       });
     }
 
     // Alert Director/VP if >70% sold (high demand)
     if (soldPct > 70) {
-      const seniors = db.prepare(
-        "SELECT id, whatsapp_group_folder FROM persona WHERE rol IN ('director','vp') AND activo = 1 AND whatsapp_group_folder IS NOT NULL",
-      ).all() as any[];
+      const seniors = db
+        .prepare(
+          "SELECT id, whatsapp_group_folder FROM persona WHERE rol IN ('director','vp') AND activo = 1 AND whatsapp_group_folder IS NOT NULL",
+        )
+        .all() as any[];
       for (const senior of seniors) {
         results.push({
-          alerta_tipo: 'event_countdown_high_demand',
+          alerta_tipo: "event_countdown_high_demand",
           entidad_id: `${row.id}-${senior.id}`,
           grupo_destino_folder: senior.whatsapp_group_folder,
-          mensaje: `*Alerta: Alta Demanda en Evento*\n\n`
-            + `"${row.nombre}" tiene ${soldPct}% vendido a ${diasPara} dias del inicio.\n`
-            + `\u2022 Disponible: ${disponible}%\n`
-            + `\u2022 Prioridad: ${row.prioridad}\n\n`
-            + `Accion recomendada: evaluar pricing y asignacion de inventario restante.`,
+          mensaje:
+            `*Alerta: Alta Demanda en Evento*\n\n` +
+            `"${row.nombre}" tiene ${soldPct}% vendido a ${diasPara} dias del inicio.\n` +
+            `\u2022 Disponible: ${disponible}%\n` +
+            `\u2022 Prioridad: ${row.prioridad}\n\n` +
+            `Accion recomendada: evaluar pricing y asignacion de inventario restante.`,
         });
       }
+    }
+  }
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// 7. Auto-promote activo_en_revision past 24h to activo (silent)
+// ---------------------------------------------------------------------------
+
+export function alertAprobacion24hExpiry(): AlertResult[] {
+  const db = getDatabase();
+
+  // Find records in activo_en_revision where fecha_activacion is >24h ago
+  for (const table of ["cuenta", "contacto"] as const) {
+    const rows = db
+      .prepare(
+        `
+      SELECT id, nombre, estado, creado_por, fecha_activacion
+      FROM ${table}
+      WHERE estado = 'activo_en_revision'
+        AND fecha_activacion IS NOT NULL
+        AND datetime(fecha_activacion, '+24 hours') < datetime('now')
+    `,
+      )
+      .all() as any[];
+
+    for (const row of rows) {
+      db.prepare(`UPDATE ${table} SET estado = 'activo' WHERE id = ?`).run(
+        row.id,
+      );
+
+      // Log the auto-activation
+      const id = `apr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      db.prepare(
+        `INSERT INTO aprobacion_registro (id, entidad_tipo, entidad_id, accion, actor_id, actor_rol, estado_anterior, estado_nuevo)
+         VALUES (?, ?, ?, 'auto_activado', 'sistema', 'sistema', 'activo_en_revision', 'activo')`,
+      ).run(id, table, row.id);
+    }
+  }
+
+  // Silent — returns no alerts to send
+  return [];
+}
+
+// ---------------------------------------------------------------------------
+// 8. Remind approvers of records pending >24h
+// ---------------------------------------------------------------------------
+
+export function alertPendientesAprobacion(): AlertResult[] {
+  const db = getDatabase();
+  const results: AlertResult[] = [];
+
+  // Cuentas pending >24h
+  const cuentas = db
+    .prepare(
+      `
+    SELECT c.id, c.nombre, c.estado, c.creado_por, c.fecha_creacion,
+           p.nombre AS creador_nombre, p.reporta_a
+    FROM cuenta c
+    LEFT JOIN persona p ON c.creado_por = p.id
+    WHERE c.estado IN ('pendiente_gerente', 'pendiente_director')
+      AND datetime(c.fecha_creacion, '+24 hours') < datetime('now')
+  `,
+    )
+    .all() as any[];
+
+  for (const row of cuentas) {
+    let approverFolder: string | null = null;
+    if (row.estado === "pendiente_gerente") {
+      const mgrId = getManager(row.creado_por);
+      approverFolder = folderOf(mgrId);
+    } else if (row.estado === "pendiente_director") {
+      const dirId = getDirector(row.creado_por);
+      approverFolder = folderOf(dirId);
+    }
+
+    if (approverFolder) {
+      results.push({
+        alerta_tipo: "pendiente_aprobacion",
+        entidad_id: row.id,
+        grupo_destino_folder: approverFolder,
+        mensaje:
+          `*Recordatorio: Cuenta pendiente de aprobacion*\n\n` +
+          `\u2022 Cuenta: ${row.nombre}\n` +
+          `\u2022 Estado: ${row.estado}\n` +
+          `\u2022 Solicitada por: ${row.creador_nombre ?? "N/A"}\n\n` +
+          `Accion recomendada: revisar y aprobar o rechazar.`,
+      });
+    }
+  }
+
+  // Contactos pending >24h
+  const contactos = db
+    .prepare(
+      `
+    SELECT co.id, co.nombre, co.estado, co.creado_por,
+           cu.nombre AS cuenta_nombre,
+           p.nombre AS creador_nombre
+    FROM contacto co
+    LEFT JOIN cuenta cu ON co.cuenta_id = cu.id
+    LEFT JOIN persona p ON co.creado_por = p.id
+    WHERE co.estado IN ('pendiente_gerente', 'pendiente_director')
+      AND co.rowid IN (
+        SELECT rowid FROM contacto
+        WHERE estado IN ('pendiente_gerente', 'pendiente_director')
+      )
+  `,
+    )
+    .all() as any[];
+
+  for (const row of contactos) {
+    let approverFolder: string | null = null;
+    if (row.estado === "pendiente_gerente") {
+      const mgrId = getManager(row.creado_por);
+      approverFolder = folderOf(mgrId);
+    } else if (row.estado === "pendiente_director") {
+      const dirId = getDirector(row.creado_por);
+      approverFolder = folderOf(dirId);
+    }
+
+    if (approverFolder) {
+      results.push({
+        alerta_tipo: "pendiente_aprobacion",
+        entidad_id: row.id,
+        grupo_destino_folder: approverFolder,
+        mensaje:
+          `*Recordatorio: Contacto pendiente de aprobacion*\n\n` +
+          `\u2022 Contacto: ${row.nombre}\n` +
+          `\u2022 Cuenta: ${row.cuenta_nombre ?? "N/A"}\n` +
+          `\u2022 Estado: ${row.estado}\n` +
+          `\u2022 Solicitado por: ${row.creador_nombre ?? "N/A"}\n\n` +
+          `Accion recomendada: revisar y aprobar o rechazar.`,
+      });
     }
   }
 
@@ -383,6 +570,9 @@ export function evaluateAlerts(): AlertResult[] {
   const db = getDatabase();
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
+  // Run auto-promotion first (silent side-effect, no alerts generated)
+  alertAprobacion24hExpiry();
+
   const allAlerts = [
     ...alertPropuestasEstancadas(),
     ...alertCuotaBaja(),
@@ -390,6 +580,7 @@ export function evaluateAlerts(): AlertResult[] {
     ...alertMegaDealMovimiento(),
     ...alertInactividadAe(),
     ...alertEventCountdown(),
+    ...alertPendientesAprobacion(),
   ];
 
   // Filter out already-sent alerts (same type + entity + group + date)
@@ -398,8 +589,13 @@ export function evaluateAlerts(): AlertResult[] {
      WHERE alerta_tipo = ? AND entidad_id = ? AND grupo_destino = ? AND fecha_envio_date = ?`,
   );
 
-  return allAlerts.filter(a => {
-    const exists = checkStmt.get(a.alerta_tipo, a.entidad_id, a.grupo_destino_folder, today);
+  return allAlerts.filter((a) => {
+    const exists = checkStmt.get(
+      a.alerta_tipo,
+      a.entidad_id,
+      a.grupo_destino_folder,
+      today,
+    );
     return !exists;
   });
 }
@@ -413,7 +609,12 @@ export function logAlerts(results: AlertResult[]): void {
 
   const insertAll = db.transaction(() => {
     for (const a of results) {
-      stmt.run(genId('alrt'), a.alerta_tipo, a.entidad_id, a.grupo_destino_folder);
+      stmt.run(
+        genId("alrt"),
+        a.alerta_tipo,
+        a.entidad_id,
+        a.grupo_destino_folder,
+      );
     }
   });
 

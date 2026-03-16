@@ -47,9 +47,9 @@ Formato WhatsApp:
 *persona*: id, nombre, rol (ae|gerente|director|vp), reporta_a, whatsapp_group_folder, email, google_calendar_id, telefono, activo
 
 ### Cuentas
-*cuenta*: id, nombre, tipo (directo|agencia), vertical, holding_agencia, agencia_medios, ae_id, gerente_id, director_id, años_relacion, es_fundador, notas, fecha_creacion
+*cuenta*: id, nombre, tipo (directo|agencia), vertical, holding_agencia, agencia_medios, ae_id, gerente_id, director_id, años_relacion, es_fundador, notas, fecha_creacion, estado (pendiente_gerente|pendiente_director|activo_en_revision|activo|disputado), creado_por, fecha_activacion
 
-*contacto*: id, nombre, cuenta_id, es_agencia, rol (comprador|planeador|decisor|operativo), seniority (junior|senior|director), telefono, email, notas
+*contacto*: id, nombre, cuenta_id, es_agencia, rol (comprador|planeador|decisor|operativo), seniority (junior|senior|director), telefono, email, notas, estado (pendiente_gerente|pendiente_director|activo_en_revision|activo|disputado), creado_por, fecha_activacion
 
 ### Contratos
 *contrato*: id, cuenta_id, año, monto_comprometido, fecha_cierre, desglose_medios, plan_descarga_52sem, notas_cierre, estatus (negociando|firmado|en_ejecucion|cerrado)
@@ -85,6 +85,9 @@ Formato WhatsApp:
 *interaccion_ejecutiva*: id, relacion_id (FK relacion_ejecutiva), tipo (llamada|comida|evento|reunion|email|regalo|presentacion|otro), resumen, calidad (excepcional|buena|normal|superficial), lugar, fecha
 
 *hito_contacto*: id, contacto_id (FK contacto), tipo (cumpleanos|ascenso|cambio_empresa|renovacion|aniversario|otro), titulo, fecha, recurrente (0|1), notas, fecha_creacion
+
+### Aprobaciones
+*aprobacion_registro*: id, entidad_tipo (cuenta|contacto), entidad_id, accion (creado|aprobado|rechazado|impugnado|resuelto|auto_activado), actor_id, actor_rol, estado_anterior, estado_nuevo, motivo, fecha
 
 ### Memoria
 *crm_memories*: id, persona_id, banco, contenido, etiquetas, fecha_creacion
@@ -214,6 +217,14 @@ No todas las herramientas estan disponibles para todos los roles.
 - *registrar_hito* -- Registra hito de contacto (cumpleanos, ascenso, renovacion)
 - *consultar_hitos_proximos* -- Hitos en los proximos N dias
 - *actualizar_notas_estrategicas* -- Actualiza notas de estrategia para una relacion
+
+### Aprobaciones
+- *solicitar_cuenta* -- Solicita creacion de nueva cuenta. Estado inicial segun rol (ae→pendiente_gerente, gerente→pendiente_director, director→activo_en_revision, vp→activo)
+- *solicitar_contacto* -- Solicita creacion de nuevo contacto en una cuenta. Misma cadena de aprobacion
+- *aprobar_registro* -- Aprueba cuenta/contacto pendiente, avanzandolo al siguiente estado (solo gerente+)
+- *rechazar_registro* -- Rechaza y elimina un registro pendiente o disputado (solo gerente+)
+- *consultar_pendientes* -- Lista registros pendientes de aprobacion segun tu rol (solo gerente+)
+- *impugnar_registro* -- Impugna un registro en activo_en_revision dentro de 24h (todos los roles)
 
 ### Reflexion Diaria
 - *consultar_resumen_dia* -- Resume el dia completo del Ejecutivo: actividades registradas, propuestas movidas, acciones pendientes/vencidas, propuestas estancadas >7 dias, y avance de cuota semanal. Usa al cierre del dia (6:30pm). Solo disponible para Ejecutivos.

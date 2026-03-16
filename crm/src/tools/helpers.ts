@@ -40,8 +40,30 @@ export function scopeFilter(
 // Lookup helpers
 // ---------------------------------------------------------------------------
 
-export function findCuentaId(nombre: string): string | null {
+/**
+ * Estado filter for approval workflow.
+ * Non-active records are hidden unless the caller created them.
+ * Returns a SQL fragment and params to inject into WHERE clauses.
+ */
+export function estadoFilter(
+  ctx: ToolContext,
+  alias = "c",
+): { where: string; params: string[] } {
+  return {
+    where: `AND (${alias}.estado IN ('activo','activo_en_revision') OR ${alias}.creado_por = ?)`,
+    params: [ctx.persona_id],
+  };
+}
+
+export function findCuentaId(nombre: string, ctx?: ToolContext): string | null {
   const db = getDatabase();
+  if (ctx) {
+    const ef = estadoFilter(ctx, "cuenta");
+    const row = db
+      .prepare(`SELECT id FROM cuenta WHERE nombre LIKE ? ${ef.where}`)
+      .get(`%${nombre}%`, ...ef.params) as any;
+    return row?.id ?? null;
+  }
   const row = db
     .prepare("SELECT id FROM cuenta WHERE nombre LIKE ?")
     .get(`%${nombre}%`) as any;

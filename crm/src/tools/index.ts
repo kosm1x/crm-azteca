@@ -60,6 +60,14 @@ import {
   consultar_hitos_proximos,
   actualizar_notas_estrategicas,
 } from "./relaciones.js";
+import {
+  solicitar_cuenta,
+  solicitar_contacto,
+  aprobar_registro,
+  rechazar_registro,
+  consultar_pendientes,
+  impugnar_registro,
+} from "./aprobaciones.js";
 
 // ---------------------------------------------------------------------------
 // Tool context — passed to every tool handler
@@ -1306,6 +1314,235 @@ const TOOL_ACTUALIZAR_NOTAS_ESTRATEGICAS: ToolDefinition = {
 };
 
 // ---------------------------------------------------------------------------
+// Approval workflow tools
+// ---------------------------------------------------------------------------
+
+const TOOL_SOLICITAR_CUENTA: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "solicitar_cuenta",
+    description:
+      "Solicita la creacion de una nueva cuenta (cliente/anunciante). Cada nivel debe asignar al nivel inferior:\n" +
+      "- Ejecutivo: crea cuenta (ae_id = tu). Cadena: pendiente_gerente → pendiente_director → activo_en_revision → activo\n" +
+      "- Gerente: debe asignar ejecutivo_nombre. Cadena: pendiente_director → activo_en_revision → activo\n" +
+      "- Director: debe asignar gerente_nombre (el gerente luego asigna al ejecutivo). Cadena: pendiente_gerente → activo_en_revision → activo\n" +
+      "- VP: debe asignar director_nombre (el director asigna gerente, gerente asigna ejecutivo). Cadena completa descendente\n\n" +
+      "USAR CUANDO:\n" +
+      "- Quieres registrar un nuevo cliente/anunciante en el CRM\n\n" +
+      "NO USAR SI:\n" +
+      "- La cuenta ya existe (usa consultar_cuentas para verificar primero)",
+    parameters: {
+      type: "object",
+      properties: {
+        nombre: { type: "string", description: "Nombre de la cuenta/empresa" },
+        tipo: {
+          type: "string",
+          enum: ["directo", "agencia"],
+          description: "Tipo de cuenta. Default: directo",
+        },
+        vertical: {
+          type: "string",
+          description: "Vertical/industria (opcional)",
+        },
+        holding_agencia: {
+          type: "string",
+          description: "Holding de agencia (ej. WPP, Publicis) (opcional)",
+        },
+        agencia_medios: {
+          type: "string",
+          description: "Agencia de medios que maneja la cuenta (opcional)",
+        },
+        notas: { type: "string", description: "Notas iniciales (opcional)" },
+        ejecutivo_nombre: {
+          type: "string",
+          description:
+            "Nombre del Ejecutivo que manejara la cuenta (requerido para gerentes)",
+        },
+        gerente_nombre: {
+          type: "string",
+          description:
+            "Nombre del Gerente que supervisara la cuenta (requerido para directores)",
+        },
+        director_nombre: {
+          type: "string",
+          description:
+            "Nombre del Director que supervisara la cuenta (requerido para VP)",
+        },
+      },
+      required: ["nombre"],
+    },
+  },
+};
+
+const TOOL_SOLICITAR_CONTACTO: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "solicitar_contacto",
+    description:
+      "Solicita la creacion de un nuevo contacto en una cuenta. El estado inicial depende de tu rol (misma cadena que solicitar_cuenta).\n\n" +
+      "USAR CUANDO:\n" +
+      "- Conoces a una nueva persona en una cuenta existente\n" +
+      "- Necesitas registrar un contacto de agencia o cliente\n\n" +
+      "NO USAR SI:\n" +
+      "- El contacto ya existe en esa cuenta (usa consultar_cuenta para verificar)",
+    parameters: {
+      type: "object",
+      properties: {
+        nombre: { type: "string", description: "Nombre completo del contacto" },
+        cuenta_nombre: {
+          type: "string",
+          description: "Nombre de la cuenta a la que pertenece",
+        },
+        rol: {
+          type: "string",
+          enum: ["comprador", "planeador", "decisor", "operativo"],
+          description: "Rol del contacto",
+        },
+        seniority: {
+          type: "string",
+          enum: ["junior", "senior", "director"],
+          description: "Nivel de seniority",
+        },
+        telefono: { type: "string", description: "Telefono (opcional)" },
+        email: { type: "string", description: "Email (opcional)" },
+        es_agencia: {
+          type: "boolean",
+          description:
+            "Es contacto de agencia (no del cliente). Default: false",
+        },
+        notas: { type: "string", description: "Notas iniciales (opcional)" },
+      },
+      required: ["nombre"],
+    },
+  },
+};
+
+const TOOL_APROBAR_REGISTRO: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "aprobar_registro",
+    description:
+      "Aprueba una cuenta o contacto pendiente, avanzandolo al siguiente estado de la cadena.\n" +
+      "- Gerente aprueba pendiente_gerente → pendiente_director (o activo_en_revision si la cuenta fue creada por director+ y requiere asignacion de ejecutivo_nombre)\n" +
+      "- Director aprueba pendiente_director → activo_en_revision (o pendiente_gerente si la cuenta fue creada por VP y requiere asignacion de gerente_nombre)\n" +
+      "- Director resuelve disputado → activo\n\n" +
+      "IMPORTANTE: Si el sistema te pide ejecutivo_nombre o gerente_nombre, es porque la cuenta necesita asignacion del nivel inferior.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Tienes pendientes de aprobacion (consulta con consultar_pendientes)",
+    parameters: {
+      type: "object",
+      properties: {
+        entidad_tipo: {
+          type: "string",
+          enum: ["cuenta", "contacto"],
+          description: "Tipo de entidad a aprobar",
+        },
+        entidad_id: {
+          type: "string",
+          description: "ID de la entidad (obtenido de consultar_pendientes)",
+        },
+        ejecutivo_nombre: {
+          type: "string",
+          description:
+            "Nombre del Ejecutivo a asignar (requerido cuando un gerente aprueba cuentas creadas por director+)",
+        },
+        gerente_nombre: {
+          type: "string",
+          description:
+            "Nombre del Gerente a asignar (requerido cuando un director aprueba cuentas creadas por VP)",
+        },
+      },
+      required: ["entidad_tipo", "entidad_id"],
+    },
+  },
+};
+
+const TOOL_RECHAZAR_REGISTRO: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "rechazar_registro",
+    description:
+      "Rechaza y elimina una cuenta o contacto pendiente/disputado.\n\n" +
+      "USAR CUANDO:\n" +
+      "- El registro es un duplicado, tiene datos incorrectos, o no debe existir\n" +
+      "- Un registro disputado no cumple con los criterios de calidad",
+    parameters: {
+      type: "object",
+      properties: {
+        entidad_tipo: {
+          type: "string",
+          enum: ["cuenta", "contacto"],
+          description: "Tipo de entidad a rechazar",
+        },
+        entidad_id: {
+          type: "string",
+          description: "ID de la entidad (obtenido de consultar_pendientes)",
+        },
+        motivo: {
+          type: "string",
+          description: "Motivo del rechazo (recomendado)",
+        },
+      },
+      required: ["entidad_tipo", "entidad_id"],
+    },
+  },
+};
+
+const TOOL_CONSULTAR_PENDIENTES: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "consultar_pendientes",
+    description:
+      "Lista cuentas y contactos pendientes de tu aprobacion.\n" +
+      "- Gerente: ve pendiente_gerente de su equipo\n" +
+      "- Director: ve pendiente_director y disputados\n" +
+      "- VP: ve todos los pendientes y disputados\n\n" +
+      "USAR CUANDO:\n" +
+      "- Quieres revisar que registros necesitan tu aprobacion\n" +
+      "- En el briefing matutino para verificar pendientes",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+  },
+};
+
+const TOOL_IMPUGNAR_REGISTRO: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "impugnar_registro",
+    description:
+      "Impugna (challenge) una cuenta o contacto en activo_en_revision dentro de las primeras 24h.\n" +
+      "El registro pasa a 'disputado' y un Director debe resolver.\n\n" +
+      "USAR CUANDO:\n" +
+      "- Detectas un duplicado, error, o problema con un registro recien aprobado\n" +
+      "- Alguien registro una cuenta que ya existe bajo otro nombre\n\n" +
+      "IMPORTANTE:\n" +
+      "- Solo funciona dentro de las 24h posteriores a la aprobacion del director\n" +
+      "- Requiere motivo obligatorio",
+    parameters: {
+      type: "object",
+      properties: {
+        entidad_tipo: {
+          type: "string",
+          enum: ["cuenta", "contacto"],
+          description: "Tipo de entidad a impugnar",
+        },
+        entidad_id: {
+          type: "string",
+          description: "ID de la entidad",
+        },
+        motivo: {
+          type: "string",
+          description: "Motivo de la impugnacion (requerido)",
+        },
+      },
+      required: ["entidad_tipo", "entidad_id", "motivo"],
+    },
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Role-based tool sets
 // ---------------------------------------------------------------------------
 
@@ -1345,6 +1582,18 @@ const AE_TOOLS: ToolDefinition[] = [
   TOOL_GENERAR_BRIEFING,
   TOOL_GUARDAR_OBSERVACION,
   TOOL_BUSCAR_MEMORIA,
+  TOOL_SOLICITAR_CUENTA,
+  TOOL_SOLICITAR_CONTACTO,
+  TOOL_IMPUGNAR_REGISTRO,
+];
+
+const APPROVAL_TOOLS: ToolDefinition[] = [
+  TOOL_SOLICITAR_CUENTA,
+  TOOL_SOLICITAR_CONTACTO,
+  TOOL_APROBAR_REGISTRO,
+  TOOL_RECHAZAR_REGISTRO,
+  TOOL_CONSULTAR_PENDIENTES,
+  TOOL_IMPUGNAR_REGISTRO,
 ];
 
 const GERENTE_TOOLS: ToolDefinition[] = [
@@ -1377,6 +1626,7 @@ const GERENTE_TOOLS: ToolDefinition[] = [
   TOOL_GUARDAR_OBSERVACION,
   TOOL_BUSCAR_MEMORIA,
   TOOL_REFLEXIONAR_MEMORIA,
+  ...APPROVAL_TOOLS,
 ];
 
 const RELATIONSHIP_TOOLS: ToolDefinition[] = [
@@ -1423,6 +1673,7 @@ const DIRECTOR_TOOLS: ToolDefinition[] = [
   TOOL_BUSCAR_MEMORIA,
   TOOL_REFLEXIONAR_MEMORIA,
   ...RELATIONSHIP_TOOLS,
+  ...APPROVAL_TOOLS,
 ];
 
 const VP_TOOLS: ToolDefinition[] = [
@@ -1457,6 +1708,7 @@ const VP_TOOLS: ToolDefinition[] = [
   TOOL_BUSCAR_MEMORIA,
   TOOL_REFLEXIONAR_MEMORIA,
   ...RELATIONSHIP_TOOLS,
+  ...APPROVAL_TOOLS,
 ];
 
 export function getToolsForRole(
@@ -1525,6 +1777,12 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   registrar_hito,
   consultar_hitos_proximos,
   actualizar_notas_estrategicas,
+  solicitar_cuenta,
+  solicitar_contacto,
+  aprobar_registro,
+  rechazar_registro,
+  consultar_pendientes,
+  impugnar_registro,
 };
 
 export async function executeTool(

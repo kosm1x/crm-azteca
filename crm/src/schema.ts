@@ -1,7 +1,7 @@
 /**
  * CRM Schema Definitions — Domain-specific for media ad sales
  *
- * 21 tables. All created in the same SQLite database used by the NanoClaw
+ * 22 tables. All created in the same SQLite database used by the NanoClaw
  * engine (via getDatabase() export).
  *
  * Tables:
@@ -20,6 +20,7 @@
  *   - crm_events: Sporting/industry events (World Cup, Liga MX, tentpoles)
  *   - crm_documents: Document metadata for RAG pipeline
  *   - crm_embeddings: Document chunk embeddings for RAG search
+ *   - aprobacion_registro: Approval workflow audit trail
  */
 
 import type Database from "better-sqlite3";
@@ -46,6 +47,7 @@ export const CRM_TABLES = [
   "relacion_ejecutiva",
   "interaccion_ejecutiva",
   "hito_contacto",
+  "aprobacion_registro",
 ] as const;
 
 export type CrmTableName = (typeof CRM_TABLES)[number];
@@ -242,6 +244,34 @@ export function createCrmSchema(db: Database.Database): void {
     db.exec("ALTER TABLE contacto ADD COLUMN fecha_nacimiento TEXT");
   }
 
+  // -- Phase 10: Approval workflow columns on cuenta + contacto --
+  const cuentaCols = db.prepare("PRAGMA table_info(cuenta)").all() as {
+    name: string;
+  }[];
+  const cuentaColNames = new Set(cuentaCols.map((c) => c.name));
+
+  if (!cuentaColNames.has("estado")) {
+    db.exec("ALTER TABLE cuenta ADD COLUMN estado TEXT DEFAULT 'activo'");
+    db.exec("UPDATE cuenta SET estado = 'activo' WHERE estado IS NULL");
+  }
+  if (!cuentaColNames.has("creado_por")) {
+    db.exec("ALTER TABLE cuenta ADD COLUMN creado_por TEXT");
+  }
+  if (!cuentaColNames.has("fecha_activacion")) {
+    db.exec("ALTER TABLE cuenta ADD COLUMN fecha_activacion TEXT");
+  }
+
+  if (!contactoColNames.has("estado")) {
+    db.exec("ALTER TABLE contacto ADD COLUMN estado TEXT DEFAULT 'activo'");
+    db.exec("UPDATE contacto SET estado = 'activo' WHERE estado IS NULL");
+  }
+  if (!contactoColNames.has("creado_por")) {
+    db.exec("ALTER TABLE contacto ADD COLUMN creado_por TEXT");
+  }
+  if (!contactoColNames.has("fecha_activacion")) {
+    db.exec("ALTER TABLE contacto ADD COLUMN fecha_activacion TEXT");
+  }
+
   db.exec(`
     -- 8. CUOTA (Weekly quotas)
     CREATE TABLE IF NOT EXISTS cuota (
@@ -430,6 +460,23 @@ export function createCrmSchema(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_hito_contacto ON hito_contacto(contacto_id);
     CREATE INDEX IF NOT EXISTS idx_hito_fecha ON hito_contacto(fecha);
+
+    -- 22. APROBACION_REGISTRO (approval workflow audit trail)
+    CREATE TABLE IF NOT EXISTS aprobacion_registro (
+      id TEXT PRIMARY KEY,
+      entidad_tipo TEXT NOT NULL CHECK(entidad_tipo IN ('cuenta','contacto')),
+      entidad_id TEXT NOT NULL,
+      accion TEXT NOT NULL CHECK(accion IN ('creado','aprobado','rechazado','impugnado','resuelto','auto_activado')),
+      actor_id TEXT NOT NULL,
+      actor_rol TEXT NOT NULL,
+      estado_anterior TEXT,
+      estado_nuevo TEXT NOT NULL,
+      motivo TEXT,
+      fecha TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cuenta_estado ON cuenta(estado);
+    CREATE INDEX IF NOT EXISTS idx_contacto_estado ON contacto(estado);
   `);
 
   // Note: No FTS5 delete trigger. External content FTS5 tables corrupt when

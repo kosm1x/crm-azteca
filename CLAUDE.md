@@ -11,7 +11,7 @@ Agentic CRM for media ad sales. NanoClaw engine at `engine/`, all CRM code at `c
 | File | Purpose |
 |------|---------|
 | `crm/src/bootstrap.ts` | CRM init: creates schema, registers hooks |
-| `crm/src/schema.ts` | 21 CRM tables (15 core + crm_events + docs/embeddings/vec/fts + crm_memories + 3 relationship tables) |
+| `crm/src/schema.ts` | 22 CRM tables (15 core + crm_events + docs/embeddings/vec/fts + crm_memories + 3 relationship tables + aprobacion_registro) |
 | `crm/src/hierarchy.ts` | isManagerOf, isDirectorOf, isVp helpers |
 | `crm/src/ipc-handlers.ts` | CRM IPC handler (crm_registrar_actividad, warmth_recompute, etc.) |
 | `crm/src/doc-sync.ts` | Document sync + hybrid RAG (vector KNN + FTS5 keyword + RRF fusion) |
@@ -19,7 +19,8 @@ Agentic CRM for media ad sales. NanoClaw engine at `engine/`, all CRM code at `c
 | `crm/src/warmth.ts` | Executive relationship warmth scoring (recency + frequency + quality) |
 | `crm/src/warmth-scheduler.ts` | Nightly warmth recomputation (4 AM MX via IPC) |
 | `crm/src/memory/` | Pluggable memory service (Hindsight sidecar or SQLite fallback) |
-| `crm/src/tools/index.ts` | Tool registry: 46 tools, role-based filtering |
+| `crm/src/tools/index.ts` | Tool registry: 52 tools, role-based filtering |
+| `crm/src/tools/aprobaciones.ts` | 6 approval workflow tools (solicitar, aprobar, rechazar, impugnar, pendientes) |
 | `crm/src/tools/relaciones.ts` | 7 Dir/VP relationship tools (warmth, milestones, interactions) |
 | `crm/src/tools/memoria.ts` | 3 memory tools (guardar, buscar, reflexionar) |
 | `crm/src/tools/drive.ts` | Drive tools: list, read, create docs/sheets/slides with content |
@@ -91,8 +92,8 @@ git subtree pull --prefix=engine https://github.com/qwibitai/nanoclaw.git main -
 ### Message Flow
 
 ```
-WhatsApp → engine (NanoClaw) → Direct tools (46 CRM tools via inference adapter)
-                                    ├── Role-based tool filtering (AE:35, Ger:29, Dir:39, VP:37)
+WhatsApp → engine (NanoClaw) → Direct tools (52 CRM tools via inference adapter)
+                                    ├── Role-based tool filtering (AE:38, Ger:35, Dir:45, VP:43)
                                     ├── Google Workspace (Gmail, Drive, Calendar)
                                     ├── Hybrid RAG (vector + FTS5 keyword + RRF fusion)
                                     ├── Long-term memory (Hindsight or SQLite fallback)
@@ -120,12 +121,12 @@ WhatsApp → engine (NanoClaw) → Direct tools (46 CRM tools via inference adap
 ## Testing
 
 ```bash
-npm run test         # All tests (608 CRM + 640 engine)
+npm run test         # All tests (660 CRM + 640 engine)
 ```
 
 Tests live in:
 - `engine/src/*.test.ts` — Engine tests
-- `crm/tests/*.test.ts` — CRM tests (29 test files)
+- `crm/tests/*.test.ts` — CRM tests (30 test files)
 
 ## Service Operations
 - Always kill ALL `tsx.*engine` processes before starting fresh.

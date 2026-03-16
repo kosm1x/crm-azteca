@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-16 (Phase 9 complete, Google Workspace live, Hindsight active, agency data model fixed)
+> Last updated: 2026-03-16 (Approval workflow live — 52 tools, 22 tables, 660 CRM tests)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`
 
 ## Phase Tracker
@@ -87,6 +87,28 @@
 **Schema changes:** +3 tables, +6 columns on `contacto`
 **New tools:** ~6–8 (relationship management, Dir/VP only)
 **New tests:** ~80–100
+
+---
+
+## Record Creation Approval Workflow (2026-03-16)
+
+> Goal: Prevent duplicates and ensure data quality — AE→Gerente→Director approval chain with cascading assignment
+
+| Deliverable | Description | Status |
+|-------------|-------------|--------|
+| Schema | +1 table (`aprobacion_registro`), +3 cols each on `cuenta`/`contacto` (`estado`, `creado_por`, `fecha_activacion`), +2 indexes | **Done** |
+| 6 approval tools | `solicitar_cuenta`, `solicitar_contacto`, `aprobar_registro`, `rechazar_registro`, `consultar_pendientes`, `impugnar_registro` | **Done** |
+| Cascading assignment | Gerente assigns AE, Director assigns Gerente (Ger then assigns AE), VP assigns Director (chain cascades down) | **Done** |
+| Estado filtering | `estadoFilter()` hides non-active records except from creator. Applied to pipeline, cuentas, cuenta detail, findCuentaId | **Done** |
+| IPC notifications | `crm_approval_notification` IPC type routes to specific folders or `__ALL__` | **Done** |
+| Alert evaluators | `alertAprobacion24hExpiry()` auto-promotes after 24h, `alertPendientesAprobacion()` reminds approvers | **Done** |
+
+**Schema changes:** +1 table, +6 columns, +2 indexes — 22 tables total
+**New tools:** +6 (solicitar_cuenta, solicitar_contacto, aprobar_registro, rechazar_registro, consultar_pendientes, impugnar_registro) — 52 total
+**Role counts:** AE:38, Gerente:35, Director:45, VP:43
+**New tests:** +52 (660 CRM tests passing, 30 test files)
+**New files:** 2 (`crm/src/tools/aprobaciones.ts`, `crm/tests/aprobaciones.test.ts`)
+**Modified files:** 16 (schema, tools/index, tools/helpers, tools/consulta, alerts, ipc-handlers, 5 group templates, CLAUDE.md, 3 test files, global CLAUDE.md)
 
 ---
 

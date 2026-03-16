@@ -416,6 +416,47 @@ export async function processCrmIpc(
       }
     }
 
+    case "crm_approval_notification": {
+      try {
+        const text = data.text as string;
+        if (!text) {
+          logger.warn("crm_approval_notification missing text");
+          return true;
+        }
+
+        const groups = deps.registeredGroups();
+        const targetFolders = data.target_folders;
+
+        if (targetFolders === "__ALL__") {
+          // Send to all registered groups
+          for (const jid of Object.keys(groups)) {
+            await deps.sendMessage(jid, text);
+          }
+          logger.info(
+            { targets: Object.keys(groups).length },
+            "Approval notification sent to all groups",
+          );
+        } else if (Array.isArray(targetFolders)) {
+          for (const folder of targetFolders) {
+            const jid = Object.keys(groups).find(
+              (k) => groups[k].folder === folder,
+            );
+            if (jid) {
+              await deps.sendMessage(jid, text);
+            }
+          }
+          logger.info(
+            { targets: (targetFolders as string[]).length },
+            "Approval notification sent to target folders",
+          );
+        }
+
+        return true;
+      } catch (err) {
+        return handleIpcError(err, sourceGroup, data.type);
+      }
+    }
+
     case "crm_warmth_recompute": {
       try {
         const { recomputeAllWarmth } = await import("./warmth-scheduler.js");

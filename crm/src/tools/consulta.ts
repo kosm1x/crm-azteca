@@ -9,6 +9,7 @@ import { getDatabase } from "../db.js";
 import type { ToolContext } from "./index.js";
 import {
   scopeFilter,
+  estadoFilter,
   findCuentaId,
   getCurrentWeek,
   dataFreshness,
@@ -24,16 +25,17 @@ export function consultar_pipeline(
 ): string {
   const db = getDatabase();
   const scope = scopeFilter(ctx, "p.ae_id");
+  const ef = estadoFilter(ctx, "c");
 
-  let where = "WHERE 1=1 " + scope.where;
-  const params: unknown[] = [...scope.params];
+  let where = "WHERE 1=1 " + scope.where + " " + ef.where;
+  const params: unknown[] = [...scope.params, ...ef.params];
 
   if (args.etapa) {
     where += " AND p.etapa = ?";
     params.push(args.etapa);
   }
   if (args.cuenta_nombre) {
-    const cid = findCuentaId(args.cuenta_nombre as string);
+    const cid = findCuentaId(args.cuenta_nombre as string, ctx);
     if (cid) {
       where += " AND p.cuenta_id = ?";
       params.push(cid);
@@ -96,6 +98,7 @@ export function consultar_cuentas(
 ): string {
   const db = getDatabase();
   const scope = scopeFilter(ctx, "c.ae_id");
+  const ef = estadoFilter(ctx, "c");
 
   const rows = db
     .prepare(
@@ -107,10 +110,10 @@ export function consultar_cuentas(
               per.nombre as ejecutivo
        FROM cuenta c
        LEFT JOIN persona per ON per.id = c.ae_id
-       WHERE 1=1 ${scope.where}
+       WHERE 1=1 ${scope.where} ${ef.where}
        ORDER BY c.nombre`,
     )
-    .all(...scope.params) as any[];
+    .all(...scope.params, ...ef.params) as any[];
 
   return JSON.stringify({
     total_cuentas: rows.length,
@@ -283,9 +286,12 @@ export function consultar_cuenta(
 
   // Role-based scope: verify the caller has access to this account
   const scope = scopeFilter(ctx, "c.ae_id");
+  const ef = estadoFilter(ctx, "c");
   const cuenta = db
-    .prepare(`SELECT c.* FROM cuenta c WHERE c.nombre LIKE ? ${scope.where}`)
-    .get(`%${nombre}%`, ...scope.params) as any;
+    .prepare(
+      `SELECT c.* FROM cuenta c WHERE c.nombre LIKE ? ${scope.where} ${ef.where}`,
+    )
+    .get(`%${nombre}%`, ...scope.params, ...ef.params) as any;
   if (!cuenta) {
     return JSON.stringify({
       error: `No encontré la cuenta "${nombre}" o no tienes acceso.`,
