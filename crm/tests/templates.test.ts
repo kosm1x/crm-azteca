@@ -214,7 +214,7 @@ describe("global.md -- tool coverage", () => {
   }
 
   it("references all 45 tool names", () => {
-    expect(allToolNames.size).toBe(45);
+    expect(allToolNames.size).toBe(45); // unique tool names across all roles
     for (const name of allToolNames) {
       expect(globalMd, `Missing tool: ${name}`).toContain(name);
     }
@@ -270,29 +270,28 @@ describe("manager.md -- tool references", () => {
 describe("director.md -- tool references", () => {
   const directorTools = getToolsForRole("director").map((t) => t.function.name);
 
-  it("references all 34 director tools", () => {
+  it("references all 38 director tools", () => {
     for (const name of directorTools) {
       expect(directorMd, `Missing director tool: ${name}`).toContain(name);
     }
   });
 
-  it("does not reference briefing tool", () => {
-    expect(directorMd).not.toContain("enviar_email_briefing");
+  it("references email tools", () => {
+    expect(directorMd).toContain("enviar_email_briefing");
   });
 });
 
 describe("vp.md -- tool references", () => {
   const vpTools = getToolsForRole("vp").map((t) => t.function.name);
 
-  it("references all 32 VP tools", () => {
+  it("references all 36 VP tools", () => {
     for (const name of vpTools) {
       expect(vpMd, `Missing VP tool: ${name}`).toContain(name);
     }
   });
 
-  it("does not reference write tools", () => {
-    expect(vpMd).not.toContain("crear_evento_calendario");
-    expect(vpMd).not.toContain("enviar_email_briefing");
+  it("does not reference AE write tools", () => {
+    expect(vpMd).not.toContain("registrar_actividad");
   });
 });
 

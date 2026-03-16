@@ -165,12 +165,12 @@ describe("getToolsForRole", () => {
     expect(names).not.toContain("registrar_actividad");
   });
 
-  it("VP has consultar tools only", () => {
+  it("VP has consultar + email + relationship tools", () => {
     const tools = getToolsForRole("vp");
     const names = tools.map((t) => t.function.name);
     expect(names).toContain("consultar_pipeline");
+    expect(names).toContain("enviar_email_briefing");
     expect(names).not.toContain("registrar_actividad");
-    expect(names).not.toContain("enviar_email_briefing");
   });
 });
 

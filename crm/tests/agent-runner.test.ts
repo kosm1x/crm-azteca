@@ -195,14 +195,14 @@ describe("role-based tool filtering", () => {
     expect(tools.length).toBe(28);
   });
 
-  it("director gets 34 tools", () => {
+  it("director gets 38 tools", () => {
     const tools = getToolsForRole("director");
-    expect(tools.length).toBe(34);
+    expect(tools.length).toBe(38);
   });
 
-  it("VP gets 32 tools", () => {
+  it("VP gets 36 tools", () => {
     const tools = getToolsForRole("vp");
-    expect(tools.length).toBe(32);
+    expect(tools.length).toBe(36);
   });
 
   it("all roles have consultar_pipeline", () => {
@@ -223,14 +223,14 @@ describe("role-based tool filtering", () => {
     }
   });
 
-  it("only gerente has enviar_email_briefing", () => {
-    const gerenteTools = getToolsForRole("gerente").map((t) => t.function.name);
-    expect(gerenteTools).toContain("enviar_email_briefing");
-
-    for (const role of ["ae", "director", "vp"] as const) {
+  it("gerente, director, and VP have enviar_email_briefing", () => {
+    for (const role of ["gerente", "director", "vp"] as const) {
       const tools = getToolsForRole(role).map((t) => t.function.name);
-      expect(tools).not.toContain("enviar_email_briefing");
+      expect(tools).toContain("enviar_email_briefing");
     }
+    // AE does not have briefing email
+    const aeTools = getToolsForRole("ae").map((t) => t.function.name);
+    expect(aeTools).not.toContain("enviar_email_briefing");
   });
 });
 
