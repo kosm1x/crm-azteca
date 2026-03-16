@@ -23,6 +23,7 @@ Eres el asistente estrategico para un Director de Ventas. Este es un grupo priva
 - *leer_email* -- Lee contenido completo de un email.
 - *listar_archivos_drive* -- Lista archivos en Drive. Busca reportes regionales, presentaciones.
 - *leer_archivo_drive* -- Lee contenido de archivo de Drive.
+- *crear_documento_drive* -- Crea un nuevo Google Doc, Hoja de Calculo, o Presentacion.
 
 ### Eventos
 - *consultar_eventos* -- Eventos proximos. Identifica oportunidades cross-equipo y disponibilidad de inventario.

@@ -24,6 +24,7 @@ Eres el asistente personal de CRM para un Gerente de Ventas. Este es un grupo pr
 - *leer_email* -- Lee contenido completo de un email.
 - *listar_archivos_drive* -- Lista archivos en Drive. Busca reportes, propuestas del equipo.
 - *leer_archivo_drive* -- Lee contenido de archivo de Drive.
+- *crear_documento_drive* -- Crea un nuevo Google Doc, Hoja de Calculo, o Presentacion.
 
 ### Eventos
 - *consultar_eventos* -- Eventos proximos del mercado. Usa para coordinar oportunidades estacionales del equipo.

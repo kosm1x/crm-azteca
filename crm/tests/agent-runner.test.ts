@@ -185,24 +185,24 @@ describe("tool context construction", () => {
 // ---------------------------------------------------------------------------
 
 describe("role-based tool filtering", () => {
-  it("AE gets 33 tools", () => {
+  it("AE gets 34 tools", () => {
     const tools = getToolsForRole("ae");
-    expect(tools.length).toBe(33);
+    expect(tools.length).toBe(34);
   });
 
-  it("gerente gets 27 tools", () => {
+  it("gerente gets 28 tools", () => {
     const tools = getToolsForRole("gerente");
-    expect(tools.length).toBe(27);
+    expect(tools.length).toBe(28);
   });
 
-  it("director gets 33 tools", () => {
+  it("director gets 34 tools", () => {
     const tools = getToolsForRole("director");
-    expect(tools.length).toBe(33);
+    expect(tools.length).toBe(34);
   });
 
-  it("VP gets 31 tools", () => {
+  it("VP gets 32 tools", () => {
     const tools = getToolsForRole("vp");
-    expect(tools.length).toBe(31);
+    expect(tools.length).toBe(32);
   });
 
   it("all roles have consultar_pipeline", () => {

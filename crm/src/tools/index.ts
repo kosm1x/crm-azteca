@@ -32,7 +32,11 @@ import { establecer_recordatorio } from "./seguimiento.js";
 import { consultar_eventos, consultar_inventario_evento } from "./eventos.js";
 import { buscar_documentos } from "./rag.js";
 import { buscar_emails, leer_email, crear_borrador_email } from "./gmail.js";
-import { listar_archivos_drive, leer_archivo_drive } from "./drive.js";
+import {
+  listar_archivos_drive,
+  leer_archivo_drive,
+  crear_documento_drive,
+} from "./drive.js";
 import { buscar_web } from "./web-search.js";
 import { analizar_winloss, analizar_tendencias } from "./analytics.js";
 import { recomendar_crosssell } from "./crosssell.js";
@@ -697,6 +701,46 @@ const TOOL_LEER_ARCHIVO_DRIVE: ToolDefinition = {
   },
 };
 
+const TOOL_CREAR_DOCUMENTO_DRIVE: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "crear_documento_drive",
+    description:
+      "Crea un nuevo documento de Google (Doc, Hoja de Calculo, o Presentacion) en el Drive del usuario.\n\n" +
+      "USAR CUANDO:\n" +
+      "- El usuario pide crear un documento, reporte, presentacion, o spreadsheet\n" +
+      "- Necesitas preparar un entregable formal (propuesta, briefing, analisis)\n\n" +
+      "TIPOS:\n" +
+      "- 'documento' — Google Docs (reportes, propuestas, minutas)\n" +
+      "- 'hoja_de_calculo' — Google Sheets (datos, comparativas, presupuestos)\n" +
+      "- 'presentacion' — Google Slides (decks, presentaciones a clientes)",
+    parameters: {
+      type: "object",
+      properties: {
+        nombre: {
+          type: "string",
+          description: "Nombre del documento",
+        },
+        tipo: {
+          type: "string",
+          enum: ["documento", "hoja_de_calculo", "presentacion"],
+          description: "Tipo de documento a crear. Default: documento",
+        },
+        contenido: {
+          type: "string",
+          description:
+            "Contenido inicial en texto plano (solo para tipo documento). Opcional.",
+        },
+        carpeta_id: {
+          type: "string",
+          description: "ID de carpeta destino en Drive (opcional)",
+        },
+      },
+      required: ["nombre"],
+    },
+  },
+};
+
 const TOOL_BUSCAR_DOCUMENTOS: ToolDefinition = {
   type: "function",
   function: {
@@ -1270,6 +1314,7 @@ const AE_TOOLS: ToolDefinition[] = [
   TOOL_CREAR_BORRADOR_EMAIL,
   TOOL_LISTAR_ARCHIVOS_DRIVE,
   TOOL_LEER_ARCHIVO_DRIVE,
+  TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS,
@@ -1298,6 +1343,7 @@ const GERENTE_TOOLS: ToolDefinition[] = [
   TOOL_LEER_EMAIL,
   TOOL_LISTAR_ARCHIVOS_DRIVE,
   TOOL_LEER_ARCHIVO_DRIVE,
+  TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS,
@@ -1337,6 +1383,7 @@ const DIRECTOR_TOOLS: ToolDefinition[] = [
   TOOL_LEER_EMAIL,
   TOOL_LISTAR_ARCHIVOS_DRIVE,
   TOOL_LEER_ARCHIVO_DRIVE,
+  TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS,
@@ -1366,6 +1413,7 @@ const VP_TOOLS: ToolDefinition[] = [
   TOOL_LEER_EMAIL,
   TOOL_LISTAR_ARCHIVOS_DRIVE,
   TOOL_LEER_ARCHIVO_DRIVE,
+  TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
   TOOL_ANALIZAR_WINLOSS,
@@ -1424,6 +1472,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   crear_borrador_email,
   listar_archivos_drive,
   leer_archivo_drive,
+  crear_documento_drive,
   buscar_documentos,
   buscar_web,
   analizar_winloss,

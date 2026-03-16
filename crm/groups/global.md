@@ -166,6 +166,7 @@ No todas las herramientas estan disponibles para todos los roles.
 ### Google Drive
 - *listar_archivos_drive* -- Lista archivos en Google Drive con busqueda opcional
 - *leer_archivo_drive* -- Lee el contenido de un archivo de Drive (truncado a 50KB)
+- *crear_documento_drive* -- Crea un nuevo documento de Google (Doc, Hoja de Calculo, o Presentacion)
 
 ### Eventos
 - *consultar_eventos* -- Consulta eventos proximos (deportivos, tentpoles, estacionales)
