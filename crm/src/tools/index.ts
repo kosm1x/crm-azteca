@@ -39,6 +39,10 @@ import {
   crear_documento_drive,
 } from "./drive.js";
 import { buscar_web } from "./web-search.js";
+import { consultar_clima } from "./clima.js";
+import { convertir_moneda } from "./moneda.js";
+import { consultar_feriados } from "./feriados.js";
+import { generar_grafica } from "./grafica.js";
 import {
   construir_paquete,
   consultar_oportunidades_inventario,
@@ -830,6 +834,129 @@ const TOOL_BUSCAR_WEB: ToolDefinition = {
         },
       },
       required: ["query"],
+    },
+  },
+};
+
+const TOOL_CONSULTAR_CLIMA: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "consultar_clima",
+    description:
+      "Obtiene clima actual y pronostico (hasta 7 dias). Util para publicidad exterior, campanas al aire libre, y contexto en briefings.",
+    parameters: {
+      type: "object",
+      properties: {
+        latitud: {
+          type: "number",
+          description: "Latitud (default: CDMX 19.43)",
+        },
+        longitud: {
+          type: "number",
+          description: "Longitud (default: CDMX -99.13)",
+        },
+        dias_pronostico: {
+          type: "number",
+          description: "Dias de pronostico (1-7, default 3)",
+        },
+      },
+    },
+  },
+};
+
+const TOOL_CONVERTIR_MONEDA: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "convertir_moneda",
+    description:
+      "Convierte divisas con tasas del Banco Central Europeo. Para cotizaciones internacionales, presupuestos USD/MXN, y comparaciones historicas.",
+    parameters: {
+      type: "object",
+      properties: {
+        monto: { type: "number", description: "Monto a convertir (default 1)" },
+        moneda_origen: {
+          type: "string",
+          description: "Codigo ISO moneda origen (default USD)",
+        },
+        moneda_destino: {
+          type: "string",
+          description: "Codigo ISO moneda destino (default MXN)",
+        },
+        fecha: {
+          type: "string",
+          description: "Fecha historica YYYY-MM-DD (opcional, default: actual)",
+        },
+      },
+    },
+  },
+};
+
+const TOOL_CONSULTAR_FERIADOS: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "consultar_feriados",
+    description:
+      "Consulta feriados publicos por pais. Para planificacion de campanas, programacion de citas, y contexto en briefings.",
+    parameters: {
+      type: "object",
+      properties: {
+        pais: {
+          type: "string",
+          description: "Codigo ISO pais (default MX). Ejemplos: MX, US, BR, CO",
+        },
+        año: { type: "number", description: "Ano (default: actual)" },
+        solo_proximos: {
+          type: "boolean",
+          description: "Solo proximos feriados (default false)",
+        },
+      },
+    },
+  },
+};
+
+const TOOL_GENERAR_GRAFICA: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "generar_grafica",
+    description:
+      "Genera URL de imagen de grafica (bar, line, pie, etc). Para insertar en Slides, emails, reportes. Se puede compartir por WhatsApp.",
+    parameters: {
+      type: "object",
+      properties: {
+        tipo: {
+          type: "string",
+          description:
+            "Tipo de grafica: bar, line, pie, doughnut, radar, scatter (default bar)",
+        },
+        titulo: { type: "string", description: "Titulo de la grafica" },
+        etiquetas: {
+          type: "array",
+          items: { type: "string" },
+          description: "Etiquetas del eje X o categorias",
+        },
+        series: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              nombre: { type: "string" },
+              datos: { type: "array", items: { type: "number" } },
+            },
+            required: ["datos"],
+          },
+          description:
+            "Series de datos. Cada una con nombre y array de numeros.",
+        },
+        ancho: {
+          type: "number",
+          description: "Ancho en pixeles (default 500, max 1200)",
+        },
+        alto: {
+          type: "number",
+          description: "Alto en pixeles (default 300, max 800)",
+        },
+      },
+      required: ["etiquetas", "series"],
     },
   },
 };
@@ -2055,6 +2182,10 @@ const AE_TOOLS: ToolDefinition[] = [
   TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
+  TOOL_CONSULTAR_CLIMA,
+  TOOL_CONVERTIR_MONEDA,
+  TOOL_CONSULTAR_FERIADOS,
+  TOOL_GENERAR_GRAFICA,
   TOOL_ANALIZAR_WINLOSS,
   TOOL_ANALIZAR_TENDENCIAS,
   TOOL_RECOMENDAR_CROSSSELL,
@@ -2103,6 +2234,10 @@ const GERENTE_TOOLS: ToolDefinition[] = [
   TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
+  TOOL_CONSULTAR_CLIMA,
+  TOOL_CONVERTIR_MONEDA,
+  TOOL_CONSULTAR_FERIADOS,
+  TOOL_GENERAR_GRAFICA,
   TOOL_ANALIZAR_WINLOSS,
   TOOL_ANALIZAR_TENDENCIAS,
   TOOL_RECOMENDAR_CROSSSELL,
@@ -2154,6 +2289,10 @@ const DIRECTOR_TOOLS: ToolDefinition[] = [
   TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
+  TOOL_CONSULTAR_CLIMA,
+  TOOL_CONVERTIR_MONEDA,
+  TOOL_CONSULTAR_FERIADOS,
+  TOOL_GENERAR_GRAFICA,
   TOOL_ANALIZAR_WINLOSS,
   TOOL_ANALIZAR_TENDENCIAS,
   TOOL_RECOMENDAR_CROSSSELL,
@@ -2195,6 +2334,10 @@ const VP_TOOLS: ToolDefinition[] = [
   TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
+  TOOL_CONSULTAR_CLIMA,
+  TOOL_CONVERTIR_MONEDA,
+  TOOL_CONSULTAR_FERIADOS,
+  TOOL_GENERAR_GRAFICA,
   TOOL_ANALIZAR_WINLOSS,
   TOOL_ANALIZAR_TENDENCIAS,
   TOOL_RECOMENDAR_CROSSSELL,
@@ -2261,6 +2404,10 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   crear_documento_drive,
   buscar_documentos,
   buscar_web,
+  consultar_clima,
+  convertir_moneda,
+  consultar_feriados,
+  generar_grafica,
   analizar_winloss,
   analizar_tendencias,
   recomendar_crosssell,

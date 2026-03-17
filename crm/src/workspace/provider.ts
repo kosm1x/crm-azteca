@@ -6,6 +6,7 @@
  */
 
 import type { WorkspaceProvider } from "./types.js";
+import { GoogleProvider } from "./google/index.js";
 
 let cached: WorkspaceProvider | null = null;
 
@@ -17,13 +18,8 @@ export function getProvider(): WorkspaceProvider {
       "Microsoft provider not yet implemented. Set WORKSPACE_PROVIDER=google or remove the env var.",
     );
   }
-  // Dynamic import to support future Microsoft provider
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { GoogleProvider } = require("./google/index.js") as {
-    GoogleProvider: new () => WorkspaceProvider;
-  };
   cached = new GoogleProvider();
-  return cached!;
+  return cached;
 }
 
 export function isWorkspaceEnabled(): boolean {

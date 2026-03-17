@@ -213,8 +213,8 @@ describe("global.md -- tool coverage", () => {
     }
   }
 
-  it("references all 65 tool names", () => {
-    expect(allToolNames.size).toBe(65); // unique tool names across all roles
+  it("references all 69 tool names", () => {
+    expect(allToolNames.size).toBe(69); // unique tool names across all roles
     for (const name of allToolNames) {
       expect(globalMd, `Missing tool: ${name}`).toContain(name);
     }

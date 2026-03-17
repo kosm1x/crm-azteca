@@ -15,22 +15,128 @@ import { warmthLabel } from "../warmth.js";
 import { getTeamFeedbackStats } from "../feedback-engine.js";
 
 // ---------------------------------------------------------------------------
+// Enrichment cache — weather + holidays (1hr TTL, shared across briefings)
+// ---------------------------------------------------------------------------
+
+const ENRICHMENT_TTL = 60 * 60 * 1000; // 1 hour
+const enrichmentCache: {
+  clima?: { data: unknown; ts: number };
+  feriados?: { data: unknown; ts: number };
+} = {};
+
+async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchEnrichment(): Promise<{
+  clima: unknown | null;
+  feriados_proximos: unknown | null;
+}> {
+  const now = Date.now();
+
+  // Weather
+  let clima: unknown | null = null;
+  if (
+    enrichmentCache.clima &&
+    now - enrichmentCache.clima.ts < ENRICHMENT_TTL
+  ) {
+    clima = enrichmentCache.clima.data;
+  } else {
+    try {
+      const res = await fetchWithTimeout(
+        "https://api.open-meteo.com/v1/forecast?latitude=19.4326&longitude=-99.1332&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=3",
+        5000,
+      );
+      if (res.ok) {
+        const raw = (await res.json()) as any;
+        clima = {
+          temperatura: raw.current_weather?.temperature,
+          viento_kmh: raw.current_weather?.windspeed,
+          pronostico: (raw.daily?.time ?? [])
+            .slice(0, 3)
+            .map((d: string, i: number) => ({
+              fecha: d,
+              max: raw.daily?.temperature_2m_max?.[i],
+              min: raw.daily?.temperature_2m_min?.[i],
+              lluvia_mm: raw.daily?.precipitation_sum?.[i],
+            })),
+        };
+        enrichmentCache.clima = { data: clima, ts: now };
+      }
+    } catch {
+      /* silent */
+    }
+  }
+
+  // Holidays
+  let feriados: unknown | null = null;
+  if (
+    enrichmentCache.feriados &&
+    now - enrichmentCache.feriados.ts < ENRICHMENT_TTL
+  ) {
+    feriados = enrichmentCache.feriados.data;
+  } else {
+    try {
+      const res = await fetchWithTimeout(
+        "https://date.nager.at/api/v3/NextPublicHolidays/MX",
+        5000,
+      );
+      if (res.ok) {
+        const raw = (await res.json()) as any[];
+        feriados = raw.slice(0, 3).map((h: any) => ({
+          fecha: h.date,
+          nombre: h.localName,
+        }));
+        enrichmentCache.feriados = { data: feriados, ts: now };
+      }
+    } catch {
+      /* silent */
+    }
+  }
+
+  return { clima, feriados_proximos: feriados };
+}
+
+// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
-export function generar_briefing(
+export async function generar_briefing(
   _args: Record<string, unknown>,
   ctx: ToolContext,
-): string {
+): Promise<string> {
+  let base: string;
   switch (ctx.rol) {
     case "ae":
-      return briefingAE(ctx);
+      base = briefingAE(ctx);
+      break;
     case "gerente":
-      return briefingGerente(ctx);
+      base = briefingGerente(ctx);
+      break;
     case "director":
-      return briefingDirector(ctx);
+      base = briefingDirector(ctx);
+      break;
     case "vp":
-      return briefingVP(ctx);
+      base = briefingVP(ctx);
+      break;
+  }
+
+  // Best-effort enrichment — never fails the briefing
+  try {
+    const enrichment = await fetchEnrichment();
+    const parsed = JSON.parse(base);
+    return JSON.stringify({ ...parsed, ...enrichment });
+  } catch {
+    return base;
   }
 }
 

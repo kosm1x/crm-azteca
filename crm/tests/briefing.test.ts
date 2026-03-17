@@ -32,6 +32,10 @@ vi.mock("../src/google-auth.js", () => ({
   getGoogleAccessToken: () => Promise.resolve("fake-token"),
 }));
 
+// Mock fetch for briefing enrichment (weather + holidays) — always reject so enrichment is null
+const mockFetch = vi.fn().mockRejectedValue(new Error("no network in test"));
+vi.stubGlobal("fetch", mockFetch);
+
 const { generar_briefing } = await import("../src/tools/briefing.js");
 const { _resetStatementCache } = await import("../src/hierarchy.js");
 
@@ -126,7 +130,7 @@ function setupDb() {
 describe("AE briefing", () => {
   beforeEach(setupDb);
 
-  it("returns carry-over items due today or overdue", () => {
+  it("returns carry-over items due today or overdue", async () => {
     // Activity with siguiente_accion due today
     testDb
       .prepare(
@@ -161,13 +165,13 @@ describe("AE briefing", () => {
         daysAgo(1),
       );
 
-    const result = JSON.parse(generar_briefing({}, aeCtx()));
+    const result = JSON.parse(await generar_briefing({}, aeCtx()));
     expect(result.carry_over.length).toBe(1);
     expect(result.carry_over[0].accion).toBe("Follow up");
     expect(result.carry_over[0].cuenta).toBe("Coca-Cola");
   });
 
-  it("detects contacts >14 days silent", () => {
+  it("detects contacts >14 days silent", async () => {
     // Activity 20 days ago (silent account)
     testDb
       .prepare(
@@ -175,12 +179,12 @@ describe("AE briefing", () => {
       )
       .run("a1", "ae1", "c1", "llamada", "Old call", daysAgo(20));
 
-    const result = JSON.parse(generar_briefing({}, aeCtx()));
+    const result = JSON.parse(await generar_briefing({}, aeCtx()));
     expect(result.cuentas_sin_contacto_14d.length).toBeGreaterThanOrEqual(1);
     expect(result.cuentas_sin_contacto_14d[0].nombre).toBe("Coca-Cola");
   });
 
-  it("computes path-to-close with quota and closeable deals", () => {
+  it("computes path-to-close with quota and closeable deals", async () => {
     const semana = getCurrentWeek();
     const año = new Date().getFullYear();
 
@@ -203,14 +207,14 @@ describe("AE briefing", () => {
       )
       .run("p2", "c1", "ae1", "Deal B", 300000, "confirmada_verbal");
 
-    const result = JSON.parse(generar_briefing({}, aeCtx()));
+    const result = JSON.parse(await generar_briefing({}, aeCtx()));
     expect(result.path_to_close.gap).toBe(400000);
     expect(result.path_to_close.closeable_total).toBe(500000);
     expect(result.path_to_close.closeable_deals.length).toBe(2);
     expect(result.path_to_close.cuota.porcentaje).toBeCloseTo(60, 0);
   });
 
-  it("includes today's calendar events", () => {
+  it("includes today's calendar events", async () => {
     const today = new Date();
     today.setHours(10, 0, 0, 0);
     const end = new Date();
@@ -229,25 +233,25 @@ describe("AE briefing", () => {
         "reunion",
       );
 
-    const result = JSON.parse(generar_briefing({}, aeCtx()));
+    const result = JSON.parse(await generar_briefing({}, aeCtx()));
     expect(result.agenda_hoy.length).toBe(1);
     expect(result.agenda_hoy[0].titulo).toBe("Client meeting");
   });
 
-  it("includes stalled proposals", () => {
+  it("includes stalled proposals", async () => {
     testDb
       .prepare(
         "INSERT INTO propuesta (id, cuenta_id, ae_id, titulo, valor_estimado, etapa, dias_sin_actividad) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
       .run("p1", "c1", "ae1", "Stalled Deal", 500000, "en_discusion", 10);
 
-    const result = JSON.parse(generar_briefing({}, aeCtx()));
+    const result = JSON.parse(await generar_briefing({}, aeCtx()));
     expect(result.propuestas_estancadas.length).toBe(1);
     expect(result.propuestas_estancadas[0].titulo).toBe("Stalled Deal");
     expect(result.propuestas_estancadas[0].dias_sin_actividad).toBe(10);
   });
 
-  it("isolates AE scope (cannot see other AEs)", () => {
+  it("isolates AE scope (cannot see other AEs)", async () => {
     testDb
       .prepare(
         "INSERT INTO actividad (id, ae_id, cuenta_id, tipo, resumen, siguiente_accion, fecha_siguiente_accion, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -263,7 +267,7 @@ describe("AE briefing", () => {
         daysAgo(2),
       );
 
-    const result = JSON.parse(generar_briefing({}, aeCtx("ae1")));
+    const result = JSON.parse(await generar_briefing({}, aeCtx("ae1")));
     expect(result.carry_over.length).toBe(0);
   });
 });
@@ -275,7 +279,7 @@ describe("AE briefing", () => {
 describe("Gerente briefing", () => {
   beforeEach(setupDb);
 
-  it("aggregates team mood", () => {
+  it("aggregates team mood", async () => {
     const recent = daysAgo(2);
     testDb
       .prepare(
@@ -293,7 +297,7 @@ describe("Gerente briefing", () => {
       )
       .run("a3", "ae2", "c2", "reunion", "Meeting", "neutral", recent);
 
-    const result = JSON.parse(generar_briefing({}, gerenteCtx()));
+    const result = JSON.parse(await generar_briefing({}, gerenteCtx()));
     expect(result.sentimiento_equipo.length).toBe(2); // ae1 and ae2
     const ae1Mood = result.sentimiento_equipo.find(
       (e: any) => e.nombre === "Maria",
@@ -302,7 +306,7 @@ describe("Gerente briefing", () => {
     expect(ae1Mood.negativo).toBe(1);
   });
 
-  it("detects declining sentiment AEs", () => {
+  it("detects declining sentiment AEs", async () => {
     // Previous period: ae1 had mostly positive
     for (let i = 0; i < 5; i++) {
       testDb
@@ -336,7 +340,7 @@ describe("Gerente briefing", () => {
         );
     }
 
-    const result = JSON.parse(generar_briefing({}, gerenteCtx()));
+    const result = JSON.parse(await generar_briefing({}, gerenteCtx()));
     expect(result.sentimiento_declinando.length).toBeGreaterThanOrEqual(1);
     expect(result.sentimiento_declinando[0].nombre).toBe("Maria");
     expect(result.sentimiento_declinando[0].curr_neg_pct).toBeGreaterThan(
@@ -344,7 +348,7 @@ describe("Gerente briefing", () => {
     );
   });
 
-  it("reports wrap-up compliance", () => {
+  it("reports wrap-up compliance", async () => {
     // ae1 had activity yesterday, ae2 did not
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -356,12 +360,12 @@ describe("Gerente briefing", () => {
       )
       .run("a1", "ae1", "c1", "llamada", "Yesterday", yesterday.toISOString());
 
-    const result = JSON.parse(generar_briefing({}, gerenteCtx()));
+    const result = JSON.parse(await generar_briefing({}, gerenteCtx()));
     expect(result.wrap_up_sin_completar).toContain("Carlos");
     expect(result.wrap_up_sin_completar).not.toContain("Maria");
   });
 
-  it("computes path-to-close per AE", () => {
+  it("computes path-to-close per AE", async () => {
     const semana = getCurrentWeek();
     const año = new Date().getFullYear();
 
@@ -377,7 +381,7 @@ describe("Gerente briefing", () => {
       )
       .run("p1", "c1", "ae1", "Close Deal", 400000, "en_negociacion");
 
-    const result = JSON.parse(generar_briefing({}, gerenteCtx()));
+    const result = JSON.parse(await generar_briefing({}, gerenteCtx()));
     expect(result.path_to_close_por_ae.length).toBeGreaterThanOrEqual(1);
     const ae1Path = result.path_to_close_por_ae.find(
       (e: any) => e.nombre === "Maria",
@@ -387,7 +391,7 @@ describe("Gerente briefing", () => {
     expect(ae1Path.closeable).toBe(400000);
   });
 
-  it("scopes to gerente team only", () => {
+  it("scopes to gerente team only", async () => {
     // ae from another gerente
     testDb
       .prepare(
@@ -410,7 +414,7 @@ describe("Gerente briefing", () => {
       )
       .run("a1", "ae3", "c3", "llamada", "Other team", "negativo", daysAgo(2));
 
-    const result = JSON.parse(generar_briefing({}, gerenteCtx()));
+    const result = JSON.parse(await generar_briefing({}, gerenteCtx()));
     // Should not include ae3's data in team mood
     const names = result.sentimiento_equipo.map((e: any) => e.nombre);
     expect(names).not.toContain("Luis");
@@ -424,7 +428,7 @@ describe("Gerente briefing", () => {
 describe("Director briefing", () => {
   beforeEach(setupDb);
 
-  it("shows cross-team sentiment grouped by gerente", () => {
+  it("shows cross-team sentiment grouped by gerente", async () => {
     testDb
       .prepare(
         "INSERT INTO actividad (id, ae_id, cuenta_id, tipo, resumen, sentimiento, fecha) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -436,7 +440,7 @@ describe("Director briefing", () => {
       )
       .run("a2", "ae2", "c2", "email", "Email", "negativo", daysAgo(2));
 
-    const result = JSON.parse(generar_briefing({}, directorCtx()));
+    const result = JSON.parse(await generar_briefing({}, directorCtx()));
     expect(result.sentimiento_cross_equipo.length).toBeGreaterThanOrEqual(1);
     const mgrTeam = result.sentimiento_cross_equipo.find(
       (e: any) => e.gerente === "Miguel",
@@ -445,7 +449,7 @@ describe("Director briefing", () => {
     expect(mgrTeam.total).toBe(2);
   });
 
-  it("reports coaching frequency for gerentes", () => {
+  it("reports coaching frequency for gerentes", async () => {
     // Gerente logging own activity
     testDb
       .prepare(
@@ -453,7 +457,7 @@ describe("Director briefing", () => {
       )
       .run("a1", "ger1", "c1", "reunion", "Coaching session", daysAgo(2));
 
-    const result = JSON.parse(generar_briefing({}, directorCtx()));
+    const result = JSON.parse(await generar_briefing({}, directorCtx()));
     expect(result.coaching_gerentes.length).toBeGreaterThanOrEqual(1);
     const miguel = result.coaching_gerentes.find(
       (e: any) => e.nombre === "Miguel",
@@ -462,20 +466,20 @@ describe("Director briefing", () => {
     expect(miguel.actividades_7d).toBe(1);
   });
 
-  it("tracks mega-deal trajectory", () => {
+  it("tracks mega-deal trajectory", async () => {
     testDb
       .prepare(
         "INSERT INTO propuesta (id, cuenta_id, ae_id, titulo, valor_estimado, etapa, dias_sin_actividad) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
       .run("p1", "c1", "ae1", "Mega Campaign", 20000000, "en_negociacion", 3);
 
-    const result = JSON.parse(generar_briefing({}, directorCtx()));
+    const result = JSON.parse(await generar_briefing({}, directorCtx()));
     expect(result.mega_deals.length).toBe(1);
     expect(result.mega_deals[0].titulo).toBe("Mega Campaign");
     expect(result.mega_deals[0].valor).toBe(20000000);
   });
 
-  it("scopes to director's teams only", () => {
+  it("scopes to director's teams only", async () => {
     // Another director's team
     testDb
       .prepare(
@@ -511,7 +515,7 @@ describe("Director briefing", () => {
         daysAgo(2),
       );
 
-    const result = JSON.parse(generar_briefing({}, directorCtx()));
+    const result = JSON.parse(await generar_briefing({}, directorCtx()));
     // Cross-team should not contain Pedro's team
     const gerentes = result.sentimiento_cross_equipo.map((e: any) => e.gerente);
     expect(gerentes).not.toContain("Pedro");
@@ -525,7 +529,7 @@ describe("Director briefing", () => {
 describe("VP briefing", () => {
   beforeEach(setupDb);
 
-  it("shows org-wide mood pulse", () => {
+  it("shows org-wide mood pulse", async () => {
     testDb
       .prepare(
         "INSERT INTO actividad (id, ae_id, cuenta_id, tipo, resumen, sentimiento, fecha) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -542,7 +546,7 @@ describe("VP briefing", () => {
       )
       .run("a3", "ae1", "c1", "reunion", "Urgent", "urgente", daysAgo(1));
 
-    const result = JSON.parse(generar_briefing({}, vpCtx()));
+    const result = JSON.parse(await generar_briefing({}, vpCtx()));
     expect(result.pulso_organizacional.total).toBe(3);
     expect(result.pulso_organizacional.positivo).toBe(1);
     expect(result.pulso_organizacional.negativo).toBe(1);
@@ -550,7 +554,7 @@ describe("VP briefing", () => {
     expect(result.pulso_organizacional.negativo_urgente_pct).toBe(67);
   });
 
-  it("flags teams with >30% negative", () => {
+  it("flags teams with >30% negative", async () => {
     // Team with high negative
     for (let i = 0; i < 4; i++) {
       testDb
@@ -565,13 +569,13 @@ describe("VP briefing", () => {
       )
       .run("pos1", "ae1", "c1", "llamada", "Pos", "positivo", daysAgo(2));
 
-    const result = JSON.parse(generar_briefing({}, vpCtx()));
+    const result = JSON.parse(await generar_briefing({}, vpCtx()));
     expect(result.equipos_alto_negativo.length).toBeGreaterThanOrEqual(1);
     expect(result.equipos_alto_negativo[0].gerente).toBe("Miguel");
     expect(result.equipos_alto_negativo[0].negativo_pct).toBeGreaterThan(30);
   });
 
-  it("calculates revenue at risk from declining sentiment", () => {
+  it("calculates revenue at risk from declining sentiment", async () => {
     // Previous period: ae1 mostly positive
     for (let i = 0; i < 5; i++) {
       testDb
@@ -612,7 +616,7 @@ describe("VP briefing", () => {
       )
       .run("p1", "c1", "ae1", "At Risk Deal", 5000000, "en_negociacion");
 
-    const result = JSON.parse(generar_briefing({}, vpCtx()));
+    const result = JSON.parse(await generar_briefing({}, vpCtx()));
     expect(result.revenue_at_risk.total).toBe(5000000);
     expect(
       result.revenue_at_risk.aes_con_sentimiento_declinando,
