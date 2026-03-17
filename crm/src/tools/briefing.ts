@@ -12,6 +12,7 @@ import { getDatabase } from "../db.js";
 import type { ToolContext } from "./index.js";
 import { scopeFilter, getCurrentWeek, dateCutoff } from "./helpers.js";
 import { warmthLabel } from "../warmth.js";
+import { getTeamFeedbackStats } from "../feedback-engine.js";
 
 // ---------------------------------------------------------------------------
 // Main dispatcher
@@ -472,6 +473,21 @@ function briefingGerente(ctx: ToolContext): string {
           aceptados: 0,
           descartados: 0,
           tasa_aceptacion: "sin datos",
+        };
+      }
+    })(),
+    feedback_borradores: (() => {
+      try {
+        const teamIds = [ctx.persona_id, ...ctx.team_ids];
+        return getTeamFeedbackStats(teamIds, 30);
+      } catch {
+        return {
+          total: 0,
+          sin_cambios: 0,
+          con_cambios: 0,
+          descartados: 0,
+          tasa_engagement: "sin datos",
+          alertas: [],
         };
       }
     })(),

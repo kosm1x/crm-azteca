@@ -286,7 +286,7 @@ cmd_hindsight_start() {
     -e "HINDSIGHT_API_LLM_MODEL=${llm_model}" \
     -e "HINDSIGHT_API_LLM_BASE_URL=${llm_base_url}" \
     -e "HINDSIGHT_API_MCP_ENABLED=true" \
-    --health-cmd 'curl -sf http://localhost:8888/v1/default/health || exit 1' \
+    --health-cmd 'curl -sf http://localhost:8888/health || exit 1' \
     --health-interval 30s \
     --health-timeout 5s \
     --health-retries 3 \
@@ -303,7 +303,7 @@ cmd_hindsight_stop() {
 cmd_hindsight_status() {
   docker ps --filter "name=$HINDSIGHT_CONTAINER" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
   echo ""
-  if curl -sf http://localhost:8888/v1/default/health 2>/dev/null; then
+  if curl -sf http://localhost:8888/health 2>/dev/null; then
     echo -e "${GREEN}API healthy${NC}"
   else
     echo -e "${RED}API unreachable${NC}"

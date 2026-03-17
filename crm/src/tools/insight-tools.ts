@@ -10,6 +10,7 @@ import { getDatabase } from "../db.js";
 import type { ToolContext } from "./index.js";
 import { scopeFilter } from "./helpers.js";
 import { draftProposalFromInsight } from "../proposal-drafter.js";
+import { captureFeedback } from "../feedback-engine.js";
 
 // ---------------------------------------------------------------------------
 // consultar_insights
@@ -359,6 +360,43 @@ export function modificar_borrador(
   db.prepare(`UPDATE propuesta SET ${updates.join(", ")} WHERE id = ?`).run(
     ...params,
   );
+
+  // Capture feedback when promoting to en_preparacion
+  if (aceptar) {
+    try {
+      const final = db
+        .prepare(
+          "SELECT titulo, valor_estimado, medios FROM propuesta WHERE id = ?",
+        )
+        .get(propuestaId) as any;
+
+      const hasChanges =
+        final.titulo !== prop.titulo ||
+        final.valor_estimado !== prop.valor_estimado ||
+        final.medios !== prop.medios;
+
+      captureFeedback(
+        propuestaId,
+        ctx.persona_id,
+        hasChanges ? "aceptado_con_cambios" : "aceptado_sin_cambios",
+        {
+          titulo: prop.titulo,
+          valor_estimado: prop.valor_estimado,
+          medios: prop.medios,
+          agente_razonamiento: prop.agente_razonamiento,
+          insight_origen_id: prop.insight_origen_id,
+          fecha_creacion: prop.fecha_creacion,
+        },
+        {
+          titulo: final.titulo,
+          valor_estimado: final.valor_estimado,
+          medios: final.medios,
+        },
+      );
+    } catch {
+      // Never let feedback capture break the promotion flow
+    }
+  }
 
   const action = aceptar
     ? "Borrador promovido a en_preparacion"
