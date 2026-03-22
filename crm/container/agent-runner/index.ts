@@ -72,6 +72,7 @@ const IPC_INPUT_CLOSE_SENTINEL = path.join(IPC_INPUT_DIR, "_close");
 const IPC_POLL_MIN_MS = 100;
 const IPC_POLL_MAX_MS = 500;
 const MAX_MESSAGES = 30;
+const MAX_SESSION_CHARS = 20_000; // Character budget for session (prevents prompt bloat with large creative content)
 const MAX_TOOL_ROUNDS = 15;
 const SESSIONS_DIR = "/workspace/group/.crm-sessions";
 
@@ -199,8 +200,23 @@ function saveSession(sessionId: string, messages: ChatMessage[]): void {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
   const filePath = path.join(SESSIONS_DIR, `${sessionId}.json`);
   const tmpPath = filePath + ".tmp";
-  // Don't persist system prompt — it's rebuilt from templates on load
-  const toSave = messages.filter((m) => m.role !== "system");
+  // Don't persist system prompt — it's rebuilt from templates on load.
+  // Strip image_url blocks from multimodal content — keep text reference only
+  // to avoid bloating session files with base64 data.
+  const toSave = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => {
+      if (Array.isArray(m.content)) {
+        const textParts = m.content
+          .filter(
+            (b: { type: string }) => b.type === "text" || b.type === "text_url",
+          )
+          .map((b: { type: string; text?: string }) => b.text ?? "")
+          .join("\n");
+        return { ...m, content: textParts || "[image]" };
+      }
+      return m;
+    });
   fs.writeFileSync(tmpPath, JSON.stringify(toSave));
   fs.renameSync(tmpPath, filePath);
 }
@@ -357,17 +373,32 @@ function truncateMessages(
   messages: ChatMessage[],
   maxMessages: number,
 ): ChatMessage[] {
-  // Always keep system message (first) + last N user/assistant exchanges
-  if (messages.length <= maxMessages + 1) return messages;
-
   const system = messages[0]?.role === "system" ? [messages[0]] : [];
   const rest = messages[0]?.role === "system" ? messages.slice(1) : messages;
-  // Keep only the last N messages, but ensure we don't break tool call pairs
-  // (an assistant with tool_calls must be followed by tool results)
-  let kept = rest.slice(-maxMessages);
-  // If first kept message is a tool result, drop orphaned tool messages
+
+  // Phase 1: trim by message count
+  let kept = rest.length > maxMessages ? rest.slice(-maxMessages) : [...rest];
+
+  // Phase 2: trim by total character count (prevents prompt bloat)
+  // Count ALL payload: content strings + tool_call arguments + tool results
+  const messageChars = (m: ChatMessage): number => {
+    let chars = typeof m.content === "string" ? m.content.length : 0;
+    if (m.tool_calls) {
+      for (const tc of m.tool_calls) {
+        chars += (tc.function?.arguments ?? "").length;
+      }
+    }
+    return chars;
+  };
+  let totalChars = kept.reduce((sum, m) => sum + messageChars(m), 0);
+  while (kept.length > 2 && totalChars > MAX_SESSION_CHARS) {
+    const dropped = kept.shift()!;
+    totalChars -= messageChars(dropped);
+  }
+
+  // Drop orphaned tool results at the start
   while (kept.length > 0 && kept[0].role === "tool") {
-    kept = kept.slice(1);
+    kept.shift();
   }
   return [...system, ...kept];
 }
@@ -521,9 +552,38 @@ async function main(): Promise<void> {
     prompt += "\n" + pending.join("\n");
   }
 
-  // Note: image attachments are referenced in the prompt as [Image: attachments/...]
-  // Qwen 3.5 (text model) cannot process image_url content blocks, so we pass
-  // the text reference only. The agent can acknowledge the image was received.
+  // Build multimodal content when images are attached (OpenAI vision format)
+  type ContentBlock =
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } };
+  let initialContent: string | ContentBlock[] = prompt;
+  if (
+    containerInput.imageAttachments &&
+    containerInput.imageAttachments.length > 0
+  ) {
+    const blocks: ContentBlock[] = [{ type: "text", text: prompt }];
+    for (const img of containerInput.imageAttachments) {
+      const imgPath = path.join("/workspace/group", img.relativePath);
+      try {
+        const data = fs.readFileSync(imgPath).toString("base64");
+        const mediaType = img.mediaType || "image/jpeg";
+        blocks.push({
+          type: "image_url",
+          image_url: { url: `data:${mediaType};base64,${data}` },
+        });
+        log(
+          `Attached image: ${img.relativePath} (${Math.round((data.length * 0.75) / 1024)}kB)`,
+        );
+      } catch (err) {
+        log(
+          `Failed to read image ${imgPath}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    if (blocks.length > 1) {
+      initialContent = blocks;
+    }
+  }
 
   // Block streaming: accumulate full response, then emit the first block early
   // while the rest is still generating. Max 3 blocks, split at paragraph boundaries.
@@ -600,10 +660,15 @@ async function main(): Promise<void> {
     return blocks;
   }
 
-  // Message loop
+  // Message loop — first iteration uses multimodal content (with images), subsequent use text
+  let isFirstMessage = true;
   try {
     while (true) {
-      messages.push({ role: "user", content: prompt });
+      messages.push({
+        role: "user",
+        content: isFirstMessage ? initialContent : prompt,
+      });
+      isFirstMessage = false;
 
       // Truncate for context window
       messages = truncateMessages(messages, MAX_MESSAGES);

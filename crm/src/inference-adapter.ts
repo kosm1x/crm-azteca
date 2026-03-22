@@ -142,7 +142,7 @@ function loadProviders(): InferenceProvider[] {
 // HTTP call to a single provider
 // ---------------------------------------------------------------------------
 
-const TIMEOUT_MS = parseInt(process.env.INFERENCE_TIMEOUT_MS ?? "30000", 10);
+const TIMEOUT_MS = parseInt(process.env.INFERENCE_TIMEOUT_MS ?? "90000", 10);
 const MAX_TOKENS = parseInt(process.env.INFERENCE_MAX_TOKENS ?? "2048", 10);
 
 interface OpenAIResponse {
@@ -368,6 +368,15 @@ export async function infer(
     );
   }
 
+  // Detect if request contains image content (multimodal)
+  const hasImages = request.messages.some(
+    (m) =>
+      Array.isArray(m.content) &&
+      m.content.some(
+        (b: { type: string }) => b.type === "image_url" || b.type === "image",
+      ),
+  );
+
   let lastError: Error | undefined;
 
   for (const provider of providers) {
@@ -382,6 +391,25 @@ export async function infer(
       continue;
     }
 
+    // Skip non-vision providers when request contains images.
+    // Vision-capable: qwen3.5-plus, qwen-vl-*, gpt-4o*, claude-*
+    // Non-vision: glm-5, glm-4-*, minimax-*
+    if (hasImages) {
+      const model = provider.model.toLowerCase();
+      const isVisionCapable =
+        model.includes("qwen3") ||
+        model.includes("qwen-vl") ||
+        model.includes("gpt-4o") ||
+        model.includes("claude");
+      if (!isVisionCapable) {
+        logger.info(
+          { provider: provider.name, model: provider.model },
+          "skipping non-vision provider for image request",
+        );
+        continue;
+      }
+    }
+
     let providerSucceeded = false;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -393,10 +421,17 @@ export async function infer(
         lastError = err instanceof Error ? err : new Error(String(err));
         const statusMatch = lastError.message.match(/HTTP (\d+)/);
         const status = statusMatch ? parseInt(statusMatch[1], 10) : 0;
-        if (status === 429 || (status >= 500 && status < 600)) {
-          const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        const isAbort =
+          lastError.name === "AbortError" ||
+          lastError.message.includes("operation was aborted");
+        if (status === 429 || (status >= 500 && status < 600) || isAbort) {
+          // Abort = timeout, retry once then move to next provider
+          if (isAbort && attempt >= 1) break;
+          const delay = isAbort
+            ? 2000
+            : Math.min(1000 * Math.pow(2, attempt), 8000);
           logger.warn(
-            { provider: provider.name, attempt, status, delay },
+            { provider: provider.name, attempt, status, delay, isAbort },
             "retryable error, backing off",
           );
           await new Promise((r) => setTimeout(r, delay));

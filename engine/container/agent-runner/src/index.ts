@@ -33,6 +33,7 @@ interface ContainerInput {
   isScheduledTask?: boolean;
   assistantName?: string;
   secrets?: Record<string, string>;
+  imageAttachments?: Array<{ relativePath: string; mediaType: string }>;
 }
 
 interface ContainerOutput {
@@ -54,9 +55,16 @@ interface SessionsIndex {
   entries: SessionEntry[];
 }
 
+type ContentBlock =
+  | { type: 'text'; text: string }
+  | {
+      type: 'image';
+      source: { type: 'base64'; media_type: string; data: string };
+    };
+
 interface SDKUserMessage {
   type: 'user';
-  message: { role: 'user'; content: string };
+  message: { role: 'user'; content: string | ContentBlock[] };
   parent_tool_use_id: null;
   session_id: string;
 }
@@ -78,6 +86,16 @@ class MessageStream {
     this.queue.push({
       type: 'user',
       message: { role: 'user', content: text },
+      parent_tool_use_id: null,
+      session_id: '',
+    });
+    this.waiting?.();
+  }
+
+  pushMultimodal(content: ContentBlock[]): void {
+    this.queue.push({
+      type: 'user',
+      message: { role: 'user', content },
       parent_tool_use_id: null,
       session_id: '',
     });
@@ -403,13 +421,45 @@ async function runQuery(
   containerInput: ContainerInput,
   sdkEnv: Record<string, string | undefined>,
   resumeAt?: string,
+  imageAttachments?: Array<{ relativePath: string; mediaType: string }>,
 ): Promise<{
   newSessionId?: string;
   lastAssistantUuid?: string;
   closedDuringQuery: boolean;
 }> {
   const stream = new MessageStream();
-  stream.push(prompt);
+
+  // Build multimodal content when images are attached
+  if (imageAttachments && imageAttachments.length > 0) {
+    const contentBlocks: ContentBlock[] = [{ type: 'text', text: prompt }];
+    for (const img of imageAttachments) {
+      const imgPath = path.join('/workspace/group', img.relativePath);
+      try {
+        const data = fs.readFileSync(imgPath).toString('base64');
+        contentBlocks.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: img.mediaType || 'image/jpeg',
+            data,
+          },
+        });
+        log(
+          `Attached image: ${img.relativePath} (${Math.round((data.length * 0.75) / 1024)}kB)`,
+        );
+      } catch (err) {
+        log(`Failed to read image ${imgPath}: ${err}`);
+      }
+    }
+    // Only use multimodal if at least one image was successfully loaded
+    if (contentBlocks.length > 1) {
+      stream.pushMultimodal(contentBlocks);
+    } else {
+      stream.push(prompt);
+    }
+  } else {
+    stream.push(prompt);
+  }
 
   // Poll IPC for follow-up messages and _close sentinel during the query
   let ipcPolling = true;
@@ -673,6 +723,8 @@ async function main(): Promise<void> {
 
   // Query loop: run query → wait for IPC message → run new query → repeat
   let resumeAt: string | undefined;
+  // Images only on first query; subsequent IPC queries are text-only
+  let pendingImages = containerInput.imageAttachments;
   try {
     while (true) {
       log(
@@ -697,7 +749,9 @@ async function main(): Promise<void> {
         containerInput,
         sdkEnv,
         resumeAt,
+        pendingImages,
       );
+      pendingImages = undefined; // Only attach images to the first query
       if (queryResult.newSessionId) {
         sessionId = queryResult.newSessionId;
       }

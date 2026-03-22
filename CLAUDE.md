@@ -156,5 +156,5 @@ When renaming any user-facing term, always update all 4 layers:
 
 ## Model-Specific Guards
 - **Qwen 3.5**: `enable_thinking: false` only for `qwen3*` models. MiniMax rejects it → HTTP 400.
-- **Qwen 3.5**: Text-only. No `image_url` content blocks. Vision requires a VL model.
+- **Qwen 3.5**: Supports vision via multimodal content arrays (`image_url` blocks). GLM-5 does NOT — inference adapter auto-skips non-vision providers for image requests.
 - **Qwen 3.5**: Returns `content: null` with `tool_calls`. Generate acknowledgments locally (pre-written phrases, zero LLM tokens).

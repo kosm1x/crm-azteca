@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-20 (Tool usage telemetry + proactive memory directives — 69 tools, 27 tables + 1 telemetry, 802 CRM tests, 38 test files)
+> Last updated: 2026-03-22 (WhatsApp image vision + vision-capable provider routing — 69 tools, 27 tables + 1 telemetry, 802 CRM tests, 38 test files)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`
 
 ## Phase Tracker
@@ -265,7 +265,7 @@ These rules hold across ALL phases:
 | Item | Waiting On | Affects Phase |
 |------|-----------|---------------|
 | Workspace Abstraction Phase B (Microsoft 365) | Azure AD app registration (IT admin) | 10.C |
-| Multimodal vision | VL model endpoint (Qwen-VL or similar) | — |
+| ~~Multimodal vision~~ | ~~VL model endpoint~~ | ~~Done (2026-03-22, qwen3.5-plus natively supports vision)~~ |
 | Data connector specifics | Discovery of cubo/inventory/contracts system interfaces | 12 (sessions 15–18) |
 
 ---
@@ -334,5 +334,6 @@ These rules hold across ALL phases:
 | — | fix: timezone — hardcode America/Mexico_City default, TZ in systemd + .env |
 | — | feat: replace Chromium+agent-browser with Lightpanda headless browser (MCP, 10 tools). Image 2.27→1.16GB, runtime 200→24MB RAM |
 | — | fix: UTC timestamps in message XML — toLocalTime() converts to MX timezone before LLM sees them. refreshSystemDate() keeps date fresh in long-lived containers |
+| — | feat: WhatsApp image vision — CRM agent-runner reads image attachments as base64, builds OpenAI multimodal content arrays (text + image_url), sends to qwen3.5-plus. GLM-5 auto-skipped for image requests (vision-capable provider routing in inference adapter). Session files strip base64 to prevent bloat. (2026-03-22) |
 | `5a59f9e` | feat: template scoring system + ACE-inspired self-improvement |
 | `8e39a40` | fix: replace TinyURL with Bitly for dashboard link shortening |
