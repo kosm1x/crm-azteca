@@ -733,13 +733,37 @@ async function main(): Promise<void> {
           result: null,
           newSessionId: sessionId,
         });
-      } else {
+      } else if (result.content) {
         // No streaming happened (short response) — send as single message
         writeOutput({
           status: "success",
           result: result.content,
           newSessionId: sessionId,
         });
+      } else {
+        // Empty response: model returned no text and no tool calls.
+        // Typically caused by output token limit exceeded (e.g. large tool
+        // call argument) or context window overflow. Send user-facing error
+        // instead of silence.
+        log("Empty inference response — emitting fallback message");
+        writeOutput({
+          status: "success",
+          result:
+            "No pude procesar esa solicitud. Intenta reformularla o dividirla en partes más pequeñas.",
+          newSessionId: sessionId,
+        });
+
+        // Remove the empty assistant message from conversation to prevent
+        // session poisoning — empty responses compound into repeated failures.
+        const lastMsg = messages[messages.length - 1];
+        if (
+          lastMsg?.role === "assistant" &&
+          !lastMsg.content &&
+          !lastMsg.tool_calls?.length
+        ) {
+          messages.pop();
+          log("Removed empty assistant message from session history");
+        }
       }
       streamBuffer = "";
 

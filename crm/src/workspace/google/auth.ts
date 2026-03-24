@@ -99,13 +99,15 @@ export function getCalendarReadClient(impersonateEmail: string) {
   return google.calendar({ version: "v3", auth });
 }
 
-/** Get a read-only Drive client impersonating the given email. */
+/** Get a Drive client impersonating the given email. Uses full drive scope
+ *  because drive.readonly must be separately authorized in domain-wide
+ *  delegation — using the full scope avoids scope mismatch errors. */
 export function getDriveClient(impersonateEmail: string) {
   const key = getServiceAccountKey();
   const auth = new JWT({
     email: key.client_email,
     key: key.private_key,
-    scopes: DRIVE_READONLY_SCOPES,
+    scopes: DRIVE_FULL_SCOPES,
     subject: impersonateEmail,
   });
   return google.drive({ version: "v3", auth });
