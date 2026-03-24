@@ -280,6 +280,9 @@ function readSecrets(): Record<string, string> {
     'HINDSIGHT_API_KEY',
     'GOOGLE_SERVICE_ACCOUNT_KEY',
     'GOOGLE_CALENDAR_ENABLED',
+    'INFERENCE_TIMEOUT_MS',
+    'INFERENCE_TOTAL_TIMEOUT_MS',
+    'INFERENCE_MAX_TOKENS',
   ]);
 }
 

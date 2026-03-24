@@ -552,37 +552,74 @@ async function main(): Promise<void> {
     prompt += "\n" + pending.join("\n");
   }
 
-  // Build multimodal content when images are attached (OpenAI vision format)
+  // Build multimodal content from image references in text.
+  // Works for both initial stdin input AND IPC follow-up messages.
+  // Detects [Image: attachments/...] patterns, loads files from disk,
+  // and builds OpenAI vision-format content blocks.
   type ContentBlock =
     | { type: "text"; text: string }
     | { type: "image_url"; image_url: { url: string } };
-  let initialContent: string | ContentBlock[] = prompt;
-  if (
-    containerInput.imageAttachments &&
-    containerInput.imageAttachments.length > 0
-  ) {
-    const blocks: ContentBlock[] = [{ type: "text", text: prompt }];
-    for (const img of containerInput.imageAttachments) {
-      const imgPath = path.join("/workspace/group", img.relativePath);
+
+  const IMAGE_REF_PATTERN = /\[Image: (attachments\/[^\]]+)\]/g;
+
+  // Track whether stdin attachments have been consumed (first message only)
+  let stdinAttachmentsConsumed = false;
+
+  function buildMultimodalContent(text: string): string | ContentBlock[] {
+    // Collect image references from text
+    const imageRefs: string[] = [];
+    let match: RegExpExecArray | null;
+    IMAGE_REF_PATTERN.lastIndex = 0;
+    while ((match = IMAGE_REF_PATTERN.exec(text)) !== null) {
+      imageRefs.push(match[1]);
+    }
+
+    // Also include explicit attachments from stdin (first call only)
+    if (!stdinAttachmentsConsumed && containerInput.imageAttachments) {
+      stdinAttachmentsConsumed = true;
+      for (const img of containerInput.imageAttachments) {
+        if (!imageRefs.includes(img.relativePath)) {
+          imageRefs.push(img.relativePath);
+        }
+      }
+    }
+
+    if (imageRefs.length === 0) return text;
+
+    // Strip [Image: ...] references from text — the actual image data
+    // will be in the multimodal blocks. Leaving text references causes
+    // non-vision models to hallucinate image descriptions.
+    const cleanText = text.replace(IMAGE_REF_PATTERN, "").trim();
+
+    const blocks: ContentBlock[] = [];
+    if (cleanText) {
+      blocks.push({ type: "text", text: cleanText });
+    }
+
+    for (const relativePath of imageRefs) {
+      const imgPath = path.join("/workspace/group", relativePath);
       try {
         const data = fs.readFileSync(imgPath).toString("base64");
-        const mediaType = img.mediaType || "image/jpeg";
         blocks.push({
           type: "image_url",
-          image_url: { url: `data:${mediaType};base64,${data}` },
+          image_url: { url: `data:image/jpeg;base64,${data}` },
         });
         log(
-          `Attached image: ${img.relativePath} (${Math.round((data.length * 0.75) / 1024)}kB)`,
+          `Attached image: ${relativePath} (${Math.round((data.length * 0.75) / 1024)}kB)`,
         );
       } catch (err) {
         log(
           `Failed to read image ${imgPath}: ${err instanceof Error ? err.message : String(err)}`,
         );
+        // Add text fallback so the LLM knows an image was intended but unavailable
+        blocks.push({
+          type: "text",
+          text: `[No se pudo cargar la imagen: ${relativePath}]`,
+        });
       }
     }
-    if (blocks.length > 1) {
-      initialContent = blocks;
-    }
+
+    return blocks.length > 0 ? blocks : text;
   }
 
   // Block streaming: accumulate full response, then emit the first block early
@@ -660,15 +697,13 @@ async function main(): Promise<void> {
     return blocks;
   }
 
-  // Message loop — first iteration uses multimodal content (with images), subsequent use text
-  let isFirstMessage = true;
+  // Message loop — buildMultimodalContent handles image detection for ALL messages
   try {
     while (true) {
       messages.push({
         role: "user",
-        content: isFirstMessage ? initialContent : prompt,
+        content: buildMultimodalContent(prompt),
       });
-      isFirstMessage = false;
 
       // Truncate for context window
       messages = truncateMessages(messages, MAX_MESSAGES);
@@ -763,6 +798,17 @@ async function main(): Promise<void> {
         ) {
           messages.pop();
           log("Removed empty assistant message from session history");
+        }
+
+        // Also remove the user message that triggered the empty response.
+        // Leaving it creates consecutive user messages on the next turn,
+        // which confuses models and compounds failures.
+        const lastAfterPop = messages[messages.length - 1];
+        if (lastAfterPop?.role === "user") {
+          messages.pop();
+          log(
+            "Removed triggering user message to prevent consecutive user messages",
+          );
         }
       }
       streamBuffer = "";

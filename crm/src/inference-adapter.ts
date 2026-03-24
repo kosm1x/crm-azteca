@@ -142,8 +142,13 @@ function loadProviders(): InferenceProvider[] {
 // HTTP call to a single provider
 // ---------------------------------------------------------------------------
 
-const TIMEOUT_MS = parseInt(process.env.INFERENCE_TIMEOUT_MS ?? "90000", 10);
-const MAX_TOKENS = parseInt(process.env.INFERENCE_MAX_TOKENS ?? "2048", 10);
+// Read lazily so secrets injected via stdin (container) take effect
+function getTimeoutMs(): number {
+  return parseInt(process.env.INFERENCE_TIMEOUT_MS ?? "90000", 10);
+}
+function getMaxTokens(): number {
+  return parseInt(process.env.INFERENCE_MAX_TOKENS ?? "2048", 10);
+}
 
 interface OpenAIResponse {
   choices: Array<{
@@ -182,7 +187,7 @@ async function callProvider(
   const body: Record<string, unknown> = {
     model: provider.model,
     messages: request.messages,
-    max_tokens: request.max_tokens ?? MAX_TOKENS,
+    max_tokens: request.max_tokens ?? getMaxTokens(),
     stream: streaming,
   };
   if (request.temperature !== undefined) {
@@ -198,7 +203,8 @@ async function callProvider(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timeoutMs = getTimeoutMs();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -238,6 +244,27 @@ async function callProvider(
         provider: provider.name,
         latency_ms: Date.now() - start,
       };
+    }
+
+    // Detect empty responses: HTTP 200 but no useful output.
+    // Some providers (GLM-5) intermittently return empty SSE streams.
+    // Treat as retriable error so fallback provider gets a chance.
+    const hasContent = !!result.content;
+    const hasToolCalls = (result.tool_calls?.length ?? 0) > 0;
+    if (!hasContent && !hasToolCalls) {
+      logger.warn(
+        {
+          provider: provider.name,
+          model: provider.model,
+          latency_ms: result.latency_ms,
+          prompt_tokens: result.usage.prompt_tokens,
+          completion_tokens: result.usage.completion_tokens,
+        },
+        "empty response from provider (no content, no tool_calls)",
+      );
+      throw new Error(
+        `HTTP 500: Empty response from ${provider.name} (0 content, 0 tool_calls after ${result.latency_ms}ms)`,
+      );
     }
 
     logger.info(
