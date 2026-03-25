@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-24 (Inference stability: empty response fallback, image hallucination fix, timeout propagation — 69 tools, 27 tables, 802 CRM tests, 38 test files)
+> Last updated: 2026-03-26 (HyperAgents template evolution: template_variant table, A/B Thompson Sampling, evaluateVariantPromotion in overnight engine, IPC variant registration — 70 tools, 28 tables, 817 CRM tests, 40 test files)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`, `COMPETITIVE-ASSESSMENT.md`
 
 ## Phase Tracker
