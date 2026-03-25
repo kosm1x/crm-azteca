@@ -90,6 +90,7 @@ import {
   consultar_feedback,
   generar_reporte_aprendizaje,
 } from "./feedback-tools.js";
+import { investigar_prospecto } from "./prospect-research.js";
 
 // ---------------------------------------------------------------------------
 // Tool context — passed to every tool handler
@@ -834,6 +835,43 @@ const TOOL_BUSCAR_WEB: ToolDefinition = {
         },
       },
       required: ["query"],
+    },
+  },
+};
+
+const TOOL_INVESTIGAR_PROSPECTO: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "investigar_prospecto",
+    description:
+      "Investiga una empresa/prospecto en profundidad. Pipeline automático: busca en internet → cruza con datos CRM → evalúa y puntúa la oportunidad.\n\n" +
+      "USAR CUANDO:\n" +
+      "- El Ejecutivo menciona una empresa nueva que quiere prospectar\n" +
+      "- Antes de una primera reunión con un prospecto\n" +
+      "- Para preparar un briefing de cuenta (nueva o existente)\n" +
+      "- El Ejecutivo pregunta '¿qué sabemos de [empresa]?'\n\n" +
+      "RETORNA: Perfil web, contexto CRM, score de oportunidad (0-100), y recomendación de siguiente acción.\n" +
+      "Después de recibir los resultados, sintetiza un briefing ejecutivo para el Ejecutivo.",
+    parameters: {
+      type: "object",
+      properties: {
+        empresa: {
+          type: "string",
+          description: "Nombre de la empresa a investigar",
+        },
+        vertical: {
+          type: "string",
+          description:
+            "Vertical/industria de la empresa (alimentos, automotriz, farmaceutica, etc). Mejora la calidad de búsqueda.",
+        },
+        enfoque: {
+          type: "string",
+          enum: ["general", "competitivo", "financiero"],
+          description:
+            "Enfoque de la investigación. 'general': perfil + noticias. 'competitivo': incluye análisis de competidores. 'financiero': incluye datos de inversión/revenue.",
+        },
+      },
+      required: ["empresa"],
     },
   },
 };
@@ -2182,6 +2220,7 @@ const AE_TOOLS: ToolDefinition[] = [
   TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
+  TOOL_INVESTIGAR_PROSPECTO,
   TOOL_CONSULTAR_CLIMA,
   TOOL_CONVERTIR_MONEDA,
   TOOL_CONSULTAR_FERIADOS,
@@ -2234,6 +2273,7 @@ const GERENTE_TOOLS: ToolDefinition[] = [
   TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
+  TOOL_INVESTIGAR_PROSPECTO,
   TOOL_CONSULTAR_CLIMA,
   TOOL_CONVERTIR_MONEDA,
   TOOL_CONSULTAR_FERIADOS,
@@ -2289,6 +2329,7 @@ const DIRECTOR_TOOLS: ToolDefinition[] = [
   TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
+  TOOL_INVESTIGAR_PROSPECTO,
   TOOL_CONSULTAR_CLIMA,
   TOOL_CONVERTIR_MONEDA,
   TOOL_CONSULTAR_FERIADOS,
@@ -2334,6 +2375,7 @@ const VP_TOOLS: ToolDefinition[] = [
   TOOL_CREAR_DOCUMENTO_DRIVE,
   TOOL_BUSCAR_DOCUMENTOS,
   TOOL_BUSCAR_WEB,
+  TOOL_INVESTIGAR_PROSPECTO,
   TOOL_CONSULTAR_CLIMA,
   TOOL_CONVERTIR_MONEDA,
   TOOL_CONSULTAR_FERIADOS,
@@ -2445,6 +2487,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   consultar_oportunidades_inventario,
   comparar_paquetes,
   actualizar_perfil,
+  investigar_prospecto,
 };
 
 export async function executeTool(

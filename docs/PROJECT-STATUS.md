@@ -2,7 +2,7 @@
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
 > Last updated: 2026-03-24 (Inference stability: empty response fallback, image hallucination fix, timeout propagation — 69 tools, 27 tables, 802 CRM tests, 38 test files)
-> Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`
+> Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`, `COMPETITIVE-ASSESSMENT.md`
 
 ## Phase Tracker
 
