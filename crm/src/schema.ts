@@ -1,7 +1,7 @@
 /**
  * CRM Schema Definitions — Domain-specific for media ad sales
  *
- * 27 tables. All created in the same SQLite database used by the NanoClaw
+ * 28 tables. All created in the same SQLite database used by the NanoClaw
  * engine (via getDatabase() export).
  *
  * Tables:
@@ -58,6 +58,7 @@ export const CRM_TABLES = [
   "feedback_propuesta",
   "perfil_usuario",
   "template_score",
+  "template_variant",
 ] as const;
 
 export type CrmTableName = (typeof CRM_TABLES)[number];
@@ -735,6 +736,30 @@ export function createCrmSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_tscore_bullet ON template_score(bullet_id);
     CREATE INDEX IF NOT EXISTS idx_tscore_version ON template_score(template_version);
     CREATE INDEX IF NOT EXISTS idx_tscore_rol ON template_score(rol);
+  `);
+
+  // -------------------------------------------------------------------------
+  // 28. TEMPLATE_VARIANT (evolutionary template A/B tracking)
+  // -------------------------------------------------------------------------
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS template_variant (
+      id                TEXT PRIMARY KEY,
+      rol               TEXT NOT NULL,
+      version_tag       TEXT NOT NULL,
+      parent_version    TEXT,
+      diff_description  TEXT NOT NULL,
+      diff_patch        TEXT,
+      composite_score   REAL,
+      sample_size       INTEGER DEFAULT 0,
+      positive_rate     REAL,
+      status            TEXT DEFAULT 'candidate'
+                        CHECK(status IN ('candidate','active','retired','rejected')),
+      created_at        TEXT DEFAULT (datetime('now')),
+      activated_at      TEXT,
+      retired_at        TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_tvar_rol ON template_variant(rol);
+    CREATE INDEX IF NOT EXISTS idx_tvar_status ON template_variant(rol, status);
   `);
 
   // Migration: add template_version to actividad

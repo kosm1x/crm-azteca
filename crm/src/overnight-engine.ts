@@ -19,6 +19,7 @@ import { logger } from "./logger.js";
 import { comparePeers } from "./analysis/peer-comparison.js";
 import { getDaysSinceActivity } from "./analysis/media-mix.js";
 import { detectCrossAgentPatterns } from "./cross-intelligence.js";
+import { evaluateVariantPromotion } from "./template-evolution.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -592,6 +593,9 @@ function analyzeTemplates(
       }
     }
   }
+
+  // Evaluate template variant promotions (HyperAgents pattern)
+  generated += evaluateVariantPromotion(db, lote);
 
   return generated;
 }

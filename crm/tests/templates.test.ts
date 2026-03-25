@@ -99,7 +99,8 @@ describe("global.md -- schema coverage", () => {
       (t) =>
         t !== "crm_vec_embeddings" &&
         t !== "crm_fts_embeddings" &&
-        t !== "template_score",
+        t !== "template_score" &&
+        t !== "template_variant",
     );
     for (const table of agentFacingTables) {
       expect(globalMd, `Missing table: ${table}`).toContain(table);

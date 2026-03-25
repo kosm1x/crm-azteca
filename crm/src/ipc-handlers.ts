@@ -482,6 +482,22 @@ export async function processCrmIpc(
       }
     }
 
+    case "crm_register_template_variant": {
+      try {
+        const { registerVariant } = await import("./template-evolution.js");
+        registerVariant(
+          data.rol as string,
+          data.version_tag as string,
+          (data.parent_version as string) ?? null,
+          data.diff_description as string,
+          data.diff_patch as string | undefined,
+        );
+        return true;
+      } catch (err) {
+        return handleIpcError(err, sourceGroup, data.type);
+      }
+    }
+
     default:
       return false;
   }
