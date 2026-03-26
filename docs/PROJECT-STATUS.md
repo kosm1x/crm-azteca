@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-26 (HyperAgents template evolution: template_variant table, A/B Thompson Sampling, evaluateVariantPromotion in overnight engine, IPC variant registration — 70 tools, 28 tables, 817 CRM tests, 40 test files)
+> Last updated: 2026-03-26 (Briefing trigger phrases across all 4 roles, doc-sync .env secret resolution fix, daily seeder proposal linkage, template sync — 70 tools, 31 tables, 817 CRM tests, 40 test files)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`, `COMPETITIVE-ASSESSMENT.md`
 
 ## Phase Tracker
@@ -207,13 +207,13 @@
 
 | Metric               | Current (Now)             | Phase 14 (Target) | Remaining |
 | -------------------- | ------------------------- | ----------------- | --------- |
-| SQLite tables        | 27                        | 29                | +2        |
-| CRM tools            | 69                        | ~77               | +8        |
-| Test files           | 38                        | ~43               | +5        |
-| Tests passing        | 802                       | 1000+             | +198      |
+| SQLite tables        | 31                        | 33                | +2        |
+| CRM tools            | 70                        | ~77               | +7        |
+| Test files           | 40                        | ~45               | +5        |
+| Tests passing        | 817                       | 1000+             | +183      |
 | Persona templates    | 8                         | 8 (dynamic)       | —         |
-| Role counts          | AE:50 Ger:53 Dir:62 VP:60 | —                 | —         |
-| Claude Code sessions | ~22                       | 26                | ~4        |
+| Role counts          | AE:51 Ger:54 Dir:63 VP:61 | —                 | —         |
+| Claude Code sessions | ~24                       | 26                | ~2        |
 | Estimated hours      | —                         | 65–85h            | —         |
 
 ### New Tables by Phase
@@ -337,3 +337,5 @@ These rules hold across ALL phases:
 | —         | feat: WhatsApp image vision — CRM agent-runner reads image attachments as base64, builds OpenAI multimodal content arrays (text + image_url), sends to qwen3.5-plus. GLM-5 auto-skipped for image requests (vision-capable provider routing in inference adapter). Session files strip base64 to prevent bloat. (2026-03-22) |
 | `5a59f9e` | feat: template scoring system + ACE-inspired self-improvement                                                                                                                                                                                                                                                                |
 | `8e39a40` | fix: replace TinyURL with Bitly for dashboard link shortening                                                                                                                                                                                                                                                                |
+| `3324739` | fix: agent ignores "Cómo vamos?" — briefing trigger phrases in all 4 role templates + global disambiguation, daily seeder links activities to proposals (fixes perpetual staleness), template sync                                                                                                                           |
+| `c522aa9` | fix: doc-sync never runs on host — readEnvFile() doesn't populate process.env, so Google key was invisible to host-side doc-sync. auth.ts now falls back to reading .env directly                                                                                                                                            |
