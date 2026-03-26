@@ -230,9 +230,25 @@ today.setUTCHours(12, 0, 0, 0); // noon UTC = 6am MX, before work starts
 
 const insertAct = db.prepare(`
   INSERT OR IGNORE INTO actividad
-    (id, ae_id, cuenta_id, tipo, resumen, sentimiento, siguiente_accion, fecha_siguiente_accion, fecha)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (id, ae_id, cuenta_id, propuesta_id, tipo, resumen, sentimiento, siguiente_accion, fecha_siguiente_accion, fecha)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
+
+// Load active proposals per AE for linking activities to deals
+const activeProposals = db
+  .prepare(
+    `SELECT id, ae_id, cuenta_id FROM propuesta
+     WHERE etapa NOT IN ('completada', 'perdida', 'cancelada')
+     ORDER BY ae_id`,
+  )
+  .all() as { id: string; ae_id: string; cuenta_id: string }[];
+
+const proposalsByAe = new Map<string, { id: string; cuenta_id: string }[]>();
+for (const p of activeProposals) {
+  const list = proposalsByAe.get(p.ae_id) ?? [];
+  list.push({ id: p.id, cuenta_id: p.cuenta_id });
+  proposalsByAe.set(p.ae_id, list);
+}
 
 let totalInserted = 0;
 let totalSkipped = 0;
@@ -284,10 +300,19 @@ for (const ae of aeRows) {
       const actSeed = baseSeed + i * 137;
       const actId = `daily-${ae.id}-${dayKey}-${i}`;
 
-      // Check if already exists (fast path — INSERT OR IGNORE handles it too)
       const { tipo, resumen } = pickActivity(actSeed);
       const sentimiento = pick(SENTIMIENTO_DIST, actSeed + 42);
       const timestamp = workingTimestamp(day, actSeed + 99);
+
+      // Link ~40% of activities to an active proposal (keeps deals fresh)
+      const aeProps = proposalsByAe.get(ae.id);
+      let propuestaId: string | null = null;
+      let actCuentaId = ae.cuenta_id;
+      if (aeProps && aeProps.length > 0 && seededRandom(actSeed + 500) < 0.4) {
+        const prop = pick(aeProps, actSeed + 600);
+        propuestaId = prop.id;
+        actCuentaId = prop.cuenta_id;
+      }
 
       // Next action (~62% of activities have one)
       const sigAccion = pick(SIGUIENTE_ACCIONES, actSeed + 200);
@@ -308,14 +333,15 @@ for (const ae of aeRows) {
 
       if (DRY_RUN) {
         console.log(
-          `  [DRY] ${actId} | ${ae.nombre} | ${tipo} | ${sentimiento} | ${timestamp.slice(0, 16)}`,
+          `  [DRY] ${actId} | ${ae.nombre} | ${tipo} | ${sentimiento} | ${timestamp.slice(0, 16)}${propuestaId ? ` → ${propuestaId}` : ""}`,
         );
         aeInserted++;
       } else {
         const result = insertAct.run(
           actId,
           ae.id,
-          ae.cuenta_id,
+          actCuentaId,
+          propuestaId,
           tipo,
           resumen,
           sentimiento,
@@ -496,6 +522,21 @@ if (!DRY_RUN) {
 // ---------------------------------------------------------------------------
 
 if (!DRY_RUN) {
+  // Refresh fecha_ultima_actividad from the latest linked activity per proposal
+  const refreshed = db
+    .prepare(
+      `
+    UPDATE propuesta
+    SET fecha_ultima_actividad = (
+      SELECT MAX(a.fecha) FROM actividad a WHERE a.propuesta_id = propuesta.id
+    )
+    WHERE etapa NOT IN ('completada', 'perdida', 'cancelada')
+      AND EXISTS (SELECT 1 FROM actividad a WHERE a.propuesta_id = propuesta.id)
+  `,
+    )
+    .run();
+
+  // Recalculate dias_sin_actividad from the (now-current) fecha_ultima_actividad
   const updated = db
     .prepare(
       `
@@ -508,7 +549,9 @@ if (!DRY_RUN) {
     )
     .run();
 
-  console.log(`Updated ${updated.changes} proposal staleness counters`);
+  console.log(
+    `Updated ${refreshed.changes} proposal last-activity dates, ${updated.changes} staleness counters`,
+  );
 }
 
 console.log(
