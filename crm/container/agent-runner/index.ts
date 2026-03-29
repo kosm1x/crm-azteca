@@ -33,6 +33,7 @@ import {
   formatProfileSection,
 } from "../../src/tools/perfil.js";
 import { inferWithTools } from "../../src/inference-adapter.js";
+import { filterToolsByIntent } from "../../src/tools/intent-filter.js";
 import type {
   ChatMessage,
   ToolDefinition,
@@ -745,9 +746,13 @@ async function main(): Promise<void> {
       // Call inference with tools (streaming text deltas via onTextChunk)
       firstBlockSent = false;
       streamBuffer = "";
+      const filteredTools = filterToolsByIntent(tools, prompt);
+      if (filteredTools.length < tools.length) {
+        log(`Intent filter: ${filteredTools.length}/${tools.length} tools`);
+      }
       const result = await inferWithTools(
         messages,
-        tools,
+        filteredTools,
         executor,
         MAX_TOOL_ROUNDS,
         onTextChunk,
