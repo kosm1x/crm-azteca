@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-29 (README overhaul, docs cleanup — 70 tools, 28 tables, 1004 tests, 52 test files)
+> Last updated: 2026-03-29 (Pre-pilot hardening: 8/10 critical items fixed — 70 tools, 28 tables, 1018 tests, 53 test files)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`, `COMPETITIVE-ASSESSMENT.md`
 
 ## Phase Tracker
