@@ -8,39 +8,39 @@ Agentic CRM for media ad sales. NanoClaw engine at `engine/`, all CRM code at `c
 
 ## Key Files
 
-| File                             | Purpose                                                                                                                                                                                                                                      |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `crm/src/bootstrap.ts`           | CRM init: creates schema, registers hooks                                                                                                                                                                                                    |
-| `crm/src/schema.ts`              | 31 CRM tables (15 core + crm_events + docs/embeddings/vec/fts + crm_memories + 3 relationship tables + aprobacion_registro + insight_comercial + patron_detectado + feedback_propuesta + perfil_usuario + template_score + template_variant) |
-| `crm/src/hierarchy.ts`           | isManagerOf, isDirectorOf, isVp helpers                                                                                                                                                                                                      |
-| `crm/src/ipc-handlers.ts`        | CRM IPC handler (crm_registrar_actividad, warmth_recompute, etc.)                                                                                                                                                                            |
-| `crm/src/doc-sync.ts`            | Document sync + hybrid RAG (vector KNN + FTS5 keyword + RRF fusion)                                                                                                                                                                          |
-| `crm/src/circuit-breaker.ts`     | Reusable circuit breaker (inference, embedding, Hindsight)                                                                                                                                                                                   |
-| `crm/src/warmth.ts`              | Executive relationship warmth scoring (recency + frequency + quality)                                                                                                                                                                        |
-| `crm/src/warmth-scheduler.ts`    | Nightly warmth recomputation (4 AM MX via IPC)                                                                                                                                                                                               |
-| `crm/src/memory/`                | Pluggable memory service (Hindsight sidecar or SQLite fallback)                                                                                                                                                                              |
-| `crm/src/tools/index.ts`         | Tool registry: 70 tools, role-based filtering                                                                                                                                                                                                |
-| `crm/src/tools/perfil.ts`        | User profile tool (actualizar_perfil + getUserProfile + formatProfileSection)                                                                                                                                                                |
-| `crm/src/package-builder.ts`     | Creative package composition (historical mix, peers, inventory, rate cards)                                                                                                                                                                  |
-| `crm/src/tools/package-tools.ts` | 3 package tools (construir_paquete, consultar_oportunidades_inventario, comparar_paquetes)                                                                                                                                                   |
-| `crm/src/tools/aprobaciones.ts`  | 6 approval workflow tools (solicitar, aprobar, rechazar, impugnar, pendientes)                                                                                                                                                               |
-| `crm/src/tools/insight-tools.ts` | 5 insight/draft tools (consultar_insights, actuar_insight, consultar_insights_equipo, revisar_borrador, modificar_borrador)                                                                                                                  |
-| `crm/src/overnight-engine.ts`    | 5 overnight analyzers + cross-agent pattern detection                                                                                                                                                                                        |
-| `crm/src/proposal-drafter.ts`    | Insight → borrador_agente propuesta (value/media derivation)                                                                                                                                                                                 |
-| `crm/src/cross-intelligence.ts`  | 5 cross-agent pattern detectors (vertical, holding, inventory, winloss, concentration)                                                                                                                                                       |
-| `crm/src/feedback-engine.ts`     | Draft-vs-final delta tracking for system learning                                                                                                                                                                                            |
-| `crm/src/analysis/`              | Shared analysis modules (peer-comparison.ts, media-mix.ts, map-reduce-summarizer.ts)                                                                                                                                                         |
-| `crm/src/tools/relaciones.ts`    | 7 Dir/VP relationship tools (warmth, milestones, interactions)                                                                                                                                                                               |
-| `crm/src/tools/memoria.ts`       | 3 memory tools (guardar, buscar, reflexionar)                                                                                                                                                                                                |
-| `crm/src/tools/drive.ts`         | Drive tools: list, read, create docs/sheets/slides with content                                                                                                                                                                              |
-| `crm/src/workspace/`             | WorkspaceProvider interface + Google implementation (mail, files, calendar)                                                                                                                                                                  |
-| `crm/src/google-auth.ts`         | Re-export shim for workspace/google/auth.ts (backward compat)                                                                                                                                                                                |
-| `crm/src/dashboard/server.ts`    | Dashboard HTTP server + router (7 API endpoints)                                                                                                                                                                                             |
-| `crm/groups/global.md`           | Global CLAUDE.md template (schema, queries, rules, scope guard, disambiguation)                                                                                                                                                              |
-| `crm/groups/ae.md`               | AE persona template (51 tools)                                                                                                                                                                                                               |
-| `crm/groups/manager.md`          | Manager persona template (54 tools)                                                                                                                                                                                                          |
-| `crm/groups/director.md`         | Director persona template (63 tools, incl. 7 relationship + 4 email)                                                                                                                                                                         |
-| `crm/groups/vp.md`               | VP persona template (61 tools, incl. 7 relationship + 4 email)                                                                                                                                                                               |
+| File                             | Purpose                                                                                                                     |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `crm/src/bootstrap.ts`           | CRM init: creates schema, registers hooks                                                                                   |
+| `crm/src/schema.ts`              | 28 CRM tables (15 core + 3 search + 3 relationship + 5 intelligence + 2 template evolution)                                 |
+| `crm/src/hierarchy.ts`           | isManagerOf, isDirectorOf, isVp helpers                                                                                     |
+| `crm/src/ipc-handlers.ts`        | CRM IPC handler (crm_registrar_actividad, warmth_recompute, etc.)                                                           |
+| `crm/src/doc-sync.ts`            | Document sync + hybrid RAG (vector KNN + FTS5 keyword + RRF fusion)                                                         |
+| `crm/src/circuit-breaker.ts`     | Reusable circuit breaker (inference, embedding, Hindsight)                                                                  |
+| `crm/src/warmth.ts`              | Executive relationship warmth scoring (recency + frequency + quality)                                                       |
+| `crm/src/warmth-scheduler.ts`    | Nightly warmth recomputation (4 AM MX via IPC)                                                                              |
+| `crm/src/memory/`                | Pluggable memory service (Hindsight sidecar or SQLite fallback)                                                             |
+| `crm/src/tools/index.ts`         | Tool registry: 70 tools, role-based filtering                                                                               |
+| `crm/src/tools/perfil.ts`        | User profile tool (actualizar_perfil + getUserProfile + formatProfileSection)                                               |
+| `crm/src/package-builder.ts`     | Creative package composition (historical mix, peers, inventory, rate cards)                                                 |
+| `crm/src/tools/package-tools.ts` | 3 package tools (construir_paquete, consultar_oportunidades_inventario, comparar_paquetes)                                  |
+| `crm/src/tools/aprobaciones.ts`  | 6 approval workflow tools (solicitar, aprobar, rechazar, impugnar, pendientes)                                              |
+| `crm/src/tools/insight-tools.ts` | 5 insight/draft tools (consultar_insights, actuar_insight, consultar_insights_equipo, revisar_borrador, modificar_borrador) |
+| `crm/src/overnight-engine.ts`    | 6 overnight analyzers + cross-agent pattern detection                                                                       |
+| `crm/src/proposal-drafter.ts`    | Insight → borrador_agente propuesta (value/media derivation)                                                                |
+| `crm/src/cross-intelligence.ts`  | 5 cross-agent pattern detectors (vertical, holding, inventory, winloss, concentration)                                      |
+| `crm/src/feedback-engine.ts`     | Draft-vs-final delta tracking for system learning                                                                           |
+| `crm/src/analysis/`              | Shared analysis modules (peer-comparison.ts, media-mix.ts, map-reduce-summarizer.ts)                                        |
+| `crm/src/tools/relaciones.ts`    | 7 Dir/VP relationship tools (warmth, milestones, interactions)                                                              |
+| `crm/src/tools/memoria.ts`       | 3 memory tools (guardar, buscar, reflexionar)                                                                               |
+| `crm/src/tools/drive.ts`         | Drive tools: list, read, create docs/sheets/slides with content                                                             |
+| `crm/src/workspace/`             | WorkspaceProvider interface + Google implementation (mail, files, calendar)                                                 |
+| `crm/src/google-auth.ts`         | Re-export shim for workspace/google/auth.ts (backward compat)                                                               |
+| `crm/src/dashboard/server.ts`    | Dashboard HTTP server + router (7 API endpoints)                                                                            |
+| `crm/groups/global.md`           | Global CLAUDE.md template (schema, queries, rules, scope guard, disambiguation)                                             |
+| `crm/groups/ae.md`               | AE persona template (51 tools)                                                                                              |
+| `crm/groups/manager.md`          | Manager persona template (54 tools)                                                                                         |
+| `crm/groups/director.md`         | Director persona template (63 tools, incl. 7 relationship + 4 email)                                                        |
+| `crm/groups/vp.md`               | VP persona template (61 tools, incl. 7 relationship + 4 email)                                                              |
 
 ### Engine Hook Points (DO NOT modify beyond these 7 files)
 
@@ -99,7 +99,7 @@ systemctl restart agentic-crm
 
 ## Architecture
 
-`engine/` is a **git subtree** of [NanoClaw](https://github.com/qwibitai/nanoclaw). DO NOT modify engine files beyond the 5 documented hook points above. All CRM logic lives in `crm/`.
+`engine/` is a **git subtree** of [NanoClaw](https://github.com/qwibitai/nanoclaw). DO NOT modify engine files beyond the 7 documented hook points above. All CRM logic lives in `crm/`.
 
 To pull upstream NanoClaw updates:
 
@@ -110,7 +110,7 @@ git subtree pull --prefix=engine https://github.com/qwibitai/nanoclaw.git main -
 ### Message Flow
 
 ```
-WhatsApp → engine (NanoClaw) → Direct tools (70 CRM tools via inference adapter)
+WhatsApp → engine (NanoClaw) → Direct tools (71 CRM tools via inference adapter)
                                     ├── Role-based tool filtering (AE:51, Ger:54, Dir:63, VP:61)
                                     ├── Google Workspace (Gmail, Drive, Calendar)
                                     ├── Hybrid RAG (vector + FTS5 keyword + RRF fusion)
@@ -148,7 +148,7 @@ npm run test         # All tests (1004 across 52 files)
 Tests live in:
 
 - `engine/src/*.test.ts` — Engine tests
-- `crm/tests/*.test.ts` — CRM tests (33 test files)
+- `crm/tests/*.test.ts` — CRM tests (41 test files)
 
 ## Service Operations
 

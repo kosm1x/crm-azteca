@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-28 (Map-reduce summarizer adapted from LightRAG — 70 tools, 31 tables, 1004 tests, 52 test files)
+> Last updated: 2026-03-29 (README overhaul, docs cleanup — 70 tools, 28 tables, 1004 tests, 52 test files)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`, `COMPETITIVE-ASSESSMENT.md`
 
 ## Phase Tracker
@@ -207,10 +207,10 @@
 
 | Metric               | Current (Now)             | Phase 14 (Target) | Remaining |
 | -------------------- | ------------------------- | ----------------- | --------- |
-| SQLite tables        | 31                        | 33                | +2        |
+| SQLite tables        | 28                        | 30                | +2        |
 | CRM tools            | 70                        | ~77               | +7        |
-| Test files           | 40                        | ~45               | +5        |
-| Tests passing        | 824                       | 1000+             | +176      |
+| Test files           | 52                        | ~55               | +3        |
+| Tests passing        | 1004                      | 1100+             | +96       |
 | Persona templates    | 8                         | 8 (dynamic)       | —         |
 | Role counts          | AE:51 Ger:54 Dir:63 VP:61 | —                 | —         |
 | Claude Code sessions | ~24                       | 26                | ~2        |
