@@ -14,6 +14,7 @@ import {
 } from "../package-builder.js";
 import type { PackageConfig } from "../package-builder.js";
 import type { ToolContext } from "./index.js";
+import { scopeFilter } from "./helpers.js";
 
 // ---------------------------------------------------------------------------
 // construir_paquete
@@ -21,19 +22,20 @@ import type { ToolContext } from "./index.js";
 
 export function construir_paquete(
   args: Record<string, unknown>,
-  _ctx: ToolContext,
+  ctx: ToolContext,
 ): string {
   const db = getDatabase();
   const cuentaNombre = args.cuenta_nombre as string;
 
-  // Fuzzy match account by name
+  // Fuzzy match account by name — scoped to caller's hierarchy
+  const scope = scopeFilter(ctx, "ae_id");
   const cuenta = db
-    .prepare("SELECT id, nombre FROM cuenta WHERE nombre LIKE ?")
-    .get(`%${cuentaNombre}%`) as any;
+    .prepare(`SELECT id, nombre FROM cuenta WHERE nombre LIKE ? ${scope.where}`)
+    .get(`%${cuentaNombre}%`, ...scope.params) as any;
 
   if (!cuenta) {
     return JSON.stringify({
-      error: `No encontre la cuenta "${cuentaNombre}".`,
+      error: `No encontre la cuenta "${cuentaNombre}" o no tienes acceso.`,
     });
   }
 

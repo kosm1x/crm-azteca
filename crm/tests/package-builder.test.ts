@@ -642,6 +642,36 @@ describe("construir_paquete handler", () => {
     const result = JSON.parse(raw);
     expect(result.cuenta).toBe("Coca-Cola");
   });
+
+  it("blocks access to accounts owned by another AE", () => {
+    seedProposals();
+    seedInventario();
+    const otherCtx = {
+      persona_id: "ae-002",
+      rol: "ae" as const,
+      team_ids: [],
+      full_team_ids: [],
+    };
+    const raw = construir_paquete({ cuenta_nombre: "Coca-Cola" }, otherCtx);
+    const result = JSON.parse(raw);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain("no tienes acceso");
+  });
+
+  it("gerente can access accounts of team members", () => {
+    seedProposals();
+    seedInventario();
+    const mgrCtx = {
+      persona_id: "mgr-001",
+      rol: "gerente" as const,
+      team_ids: ["ae-001", "ae-002"],
+      full_team_ids: ["ae-001", "ae-002"],
+    };
+    const raw = construir_paquete({ cuenta_nombre: "Coca-Cola" }, mgrCtx);
+    const result = JSON.parse(raw);
+    expect(result.error).toBeUndefined();
+    expect(result.cuenta).toBe("Coca-Cola");
+  });
 });
 
 // ---------------------------------------------------------------------------
