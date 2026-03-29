@@ -42,24 +42,31 @@ function genId(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Dedup: skip if same (tipo, cuenta_id) with similar titulo in last 7 days
+// Batch dedup: preload existing (tipo, cuenta_id, titulo) for a given tipo
+// so each analyzer runs 1 query instead of N per-row checks
 // ---------------------------------------------------------------------------
 
-function isDuplicate(
+function loadExistingInsights(
   db: ReturnType<typeof getDatabase>,
   tipo: string,
+): Set<string> {
+  const cutoff = new Date(Date.now() - 7 * 86400000).toISOString();
+  const rows = db
+    .prepare(
+      `SELECT cuenta_id, titulo FROM insight_comercial
+       WHERE tipo = ? AND fecha_generacion >= ?
+         AND estado NOT IN ('expirado','descartado')`,
+    )
+    .all(tipo, cutoff) as Array<{ cuenta_id: string; titulo: string }>;
+  return new Set(rows.map((r) => `${r.cuenta_id}\0${r.titulo}`));
+}
+
+function isDuplicate(
+  existing: Set<string>,
   cuentaId: string,
   titulo: string,
 ): boolean {
-  const cutoff = new Date(Date.now() - 7 * 86400000).toISOString();
-  const existing = db
-    .prepare(
-      `SELECT 1 FROM insight_comercial
-       WHERE tipo = ? AND cuenta_id = ? AND titulo = ?
-         AND fecha_generacion >= ? AND estado NOT IN ('expirado','descartado')`,
-    )
-    .get(tipo, cuentaId, titulo, cutoff);
-  return !!existing;
+  return existing.has(`${cuentaId}\0${titulo}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -98,6 +105,7 @@ function analyzeCalendar(
     .all() as any[];
 
   let count = 0;
+  const existing = loadExistingInsights(db, "oportunidad_calendario");
   const insert = db.prepare(
     `INSERT INTO insight_comercial (id, tipo, cuenta_id, ae_id, evento_id, titulo, descripcion, accion_recomendada, datos_soporte, confianza, sample_size, valor_potencial, fecha_expiracion, lote_nocturno)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -105,8 +113,7 @@ function analyzeCalendar(
 
   for (const row of rows) {
     const titulo = `${row.gancho_temporal} — ${row.cuenta_nombre}`;
-    if (isDuplicate(db, "oportunidad_calendario", row.cuenta_id, titulo))
-      continue;
+    if (isDuplicate(existing, row.cuenta_id, titulo)) continue;
 
     const confianza = row.times_bought >= 2 ? 0.85 : 0.65;
     const expiration = row.evento_id
@@ -157,6 +164,7 @@ function analyzeInventory(
     .all() as any[];
 
   let count = 0;
+  const existing = loadExistingInsights(db, "oportunidad_inventario");
   const insert = db.prepare(
     `INSERT INTO insight_comercial (id, tipo, cuenta_id, ae_id, evento_id, titulo, descripcion, accion_recomendada, datos_soporte, confianza, sample_size, valor_potencial, fecha_expiracion, lote_nocturno)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -200,8 +208,7 @@ function analyzeInventory(
 
     for (const acc of accounts) {
       const titulo = `Inventario ${ev.nombre} — ${acc.nombre}`;
-      if (isDuplicate(db, "oportunidad_inventario", acc.cuenta_id, titulo))
-        continue;
+      if (isDuplicate(existing, acc.cuenta_id, titulo)) continue;
 
       const remaining = ev.meta_ingresos
         ? ev.meta_ingresos - (ev.ingresos_actual || 0)
@@ -259,6 +266,7 @@ function analyzeGap(db: ReturnType<typeof getDatabase>, lote: string): number {
     .all(year) as any[];
 
   let count = 0;
+  const existingGap = loadExistingInsights(db, "oportunidad_gap");
   const insert = db.prepare(
     `INSERT INTO insight_comercial (id, tipo, cuenta_id, ae_id, titulo, descripcion, accion_recomendada, datos_soporte, confianza, sample_size, valor_potencial, fecha_expiracion, lote_nocturno)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -266,7 +274,7 @@ function analyzeGap(db: ReturnType<typeof getDatabase>, lote: string): number {
 
   for (const row of rows) {
     const titulo = `Gap de facturación — ${row.cuenta_nombre}`;
-    if (isDuplicate(db, "oportunidad_gap", row.cuenta_id, titulo)) continue;
+    if (isDuplicate(existingGap, row.cuenta_id, titulo)) continue;
 
     const gapPct = Math.round((row.gap_acum / row.monto_comprometido) * 100);
 
@@ -315,6 +323,7 @@ function analyzeCrossSell(
     .all() as any[];
 
   let count = 0;
+  const existingCS = loadExistingInsights(db, "oportunidad_crosssell");
   const insert = db.prepare(
     `INSERT INTO insight_comercial (id, tipo, cuenta_id, ae_id, titulo, descripcion, accion_recomendada, datos_soporte, confianza, sample_size, valor_potencial, fecha_expiracion, lote_nocturno)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -328,7 +337,7 @@ function analyzeCrossSell(
       if (!gap.tipo_oportunidad || gap.num_cuentas < 2) continue;
 
       const titulo = `Cross-sell ${gap.tipo_oportunidad} — ${acc.nombre}`;
-      if (isDuplicate(db, "oportunidad_crosssell", acc.id, titulo)) continue;
+      if (isDuplicate(existingCS, acc.id, titulo)) continue;
 
       insert.run(
         genId(),
@@ -355,7 +364,7 @@ function analyzeCrossSell(
     // Value upsell if gap > $1M
     if (comparison.value_gap && comparison.value_gap > 1_000_000) {
       const titulo = `Upsell inversión — ${acc.nombre}`;
-      if (!isDuplicate(db, "oportunidad_crosssell", acc.id, titulo)) {
+      if (!isDuplicate(existingCS, acc.id, titulo)) {
         insert.run(
           genId(),
           "oportunidad_crosssell",
@@ -392,6 +401,7 @@ function analyzeMarket(
   lote: string,
 ): number {
   let count = 0;
+  const existingMarket = loadExistingInsights(db, "oportunidad_mercado");
   const insert = db.prepare(
     `INSERT INTO insight_comercial (id, tipo, cuenta_id, ae_id, titulo, descripcion, accion_recomendada, datos_soporte, confianza, sample_size, valor_potencial, fecha_expiracion, lote_nocturno)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -413,7 +423,7 @@ function analyzeMarket(
 
   for (const row of expiring) {
     const titulo = `Contrato por vencer — ${row.cuenta_nombre}`;
-    if (isDuplicate(db, "oportunidad_mercado", row.cuenta_id, titulo)) continue;
+    if (isDuplicate(existingMarket, row.cuenta_id, titulo)) continue;
 
     insert.run(
       genId(),
@@ -452,7 +462,7 @@ function analyzeMarket(
     if (days === null || days < 30) continue;
 
     const titulo = `Reactivación — ${acc.cuenta_nombre}`;
-    if (isDuplicate(db, "oportunidad_mercado", acc.cuenta_id, titulo)) continue;
+    if (isDuplicate(existingMarket, acc.cuenta_id, titulo)) continue;
 
     insert.run(
       genId(),
@@ -608,10 +618,18 @@ export function runOvernightAnalysis(): OvernightResult {
   const db = getDatabase();
   const lote = new Date().toISOString().slice(0, 10);
 
-  // Run expiration first
+  // Run expiration + purge first
   const expired = expireStaleInsights(db);
+  // Purge insights expired > 90 days to prevent unbounded table growth
+  db.prepare(
+    `DELETE FROM insight_comercial
+     WHERE estado = 'expirado'
+       AND fecha_generacion < datetime('now', '-90 days')`,
+  ).run();
 
-  // Run all 6 analyzers in a transaction
+  // Run each analyzer in its own transaction so partial results survive.
+  // If analyzer 3 fails, analyzers 1-2 results are still committed.
+  const errors: string[] = [];
   let calendar = 0;
   let inventory = 0;
   let gap = 0;
@@ -619,19 +637,46 @@ export function runOvernightAnalysis(): OvernightResult {
   let market = 0;
   let template = 0;
 
-  const runAll = db.transaction(() => {
-    calendar = analyzeCalendar(db, lote);
-    inventory = analyzeInventory(db, lote);
-    gap = analyzeGap(db, lote);
-    crosssell = analyzeCrossSell(db, lote);
-    market = analyzeMarket(db, lote);
-    template = analyzeTemplates(db, lote);
-  });
+  const analyzers: Array<{ name: string; fn: () => number }> = [
+    { name: "calendar", fn: () => analyzeCalendar(db, lote) },
+    { name: "inventory", fn: () => analyzeInventory(db, lote) },
+    { name: "gap", fn: () => analyzeGap(db, lote) },
+    { name: "crosssell", fn: () => analyzeCrossSell(db, lote) },
+    { name: "market", fn: () => analyzeMarket(db, lote) },
+    { name: "template", fn: () => analyzeTemplates(db, lote) },
+  ];
 
-  runAll();
+  const results = new Map<string, number>();
+  for (const analyzer of analyzers) {
+    try {
+      const run = db.transaction(() => analyzer.fn());
+      results.set(analyzer.name, run());
+    } catch (err) {
+      logger.error(
+        { err, analyzer: analyzer.name, lote },
+        "Overnight analyzer failed — partial results preserved",
+      );
+      errors.push(analyzer.name);
+      results.set(analyzer.name, 0);
+    }
+  }
 
-  // Post-analyzer: cross-agent pattern detection
-  const patterns = detectCrossAgentPatterns(lote);
+  calendar = results.get("calendar")!;
+  inventory = results.get("inventory")!;
+  gap = results.get("gap")!;
+  crosssell = results.get("crosssell")!;
+  market = results.get("market")!;
+  template = results.get("template")!;
+
+  // Post-analyzer: cross-agent pattern detection (also isolated)
+  let patternTotal = 0;
+  try {
+    const patterns = detectCrossAgentPatterns(lote);
+    patternTotal = patterns.total;
+  } catch (err) {
+    logger.error({ err, lote }, "Cross-agent pattern detection failed");
+    errors.push("patterns");
+  }
 
   const total = calendar + inventory + gap + crosssell + market + template;
 
@@ -646,9 +691,12 @@ export function runOvernightAnalysis(): OvernightResult {
       template,
       total,
       expired,
-      patterns: patterns.total,
+      patterns: patternTotal,
+      errors: errors.length > 0 ? errors : undefined,
     },
-    "Overnight analysis completed",
+    errors.length > 0
+      ? `Overnight analysis completed with ${errors.length} failed analyzer(s)`
+      : "Overnight analysis completed",
   );
 
   return {
