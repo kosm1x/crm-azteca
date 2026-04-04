@@ -82,14 +82,26 @@ function writeTask(tasksDir: string, name: string, taskType: string): void {
   }
 }
 
+const RECOVERY_DELAY_MS = 60_000; // retry after 60s on cron error
+
 function scheduleNext(entry: ScheduleEntry, tasksDir: string): void {
   if (stopped) return;
 
-  const cron = CronExpressionParser.parse(entry.cron, { tz: TIMEZONE });
-  const next = cron.next();
-  const iso = next.toISOString();
-  if (!iso) return; // cron exhausted (shouldn't happen with recurring patterns)
-  const delayMs = Math.max(new Date(iso).getTime() - Date.now(), 1000);
+  let delayMs: number;
+  try {
+    const cron = CronExpressionParser.parse(entry.cron, { tz: TIMEZONE });
+    const next = cron.next();
+    const iso = next.toISOString();
+    delayMs = iso
+      ? Math.max(new Date(iso).getTime() - Date.now(), 1000)
+      : RECOVERY_DELAY_MS;
+  } catch (err) {
+    logger.error(
+      { err, name: entry.name },
+      "Cron parse/next failed, retrying in 60s",
+    );
+    delayMs = RECOVERY_DELAY_MS;
+  }
 
   const timer = setTimeout(() => {
     if (stopped) return;
@@ -99,7 +111,6 @@ function scheduleNext(entry: ScheduleEntry, tasksDir: string): void {
     scheduleNext(entry, tasksDir);
   }, delayMs);
 
-  // Don't keep process alive for scheduler timers
   if (timer.unref) timer.unref();
   timers.set(entry.name, timer);
 }

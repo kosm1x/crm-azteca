@@ -46,7 +46,7 @@ import {
 } from './db.js';
 import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
-import { startIpcWatcher } from './ipc.js';
+import { startIpcWatcher, stopIpcWatcher } from './ipc.js';
 import {
   compactMessages,
   findChannel,
@@ -540,6 +540,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
     stopScheduler();
+    stopIpcWatcher();
     proxyServer.close();
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();

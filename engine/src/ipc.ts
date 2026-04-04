@@ -197,6 +197,8 @@ function watchGroupDir(ipcBaseDir: string, group: string, deps: IpcDeps): void {
       watcher.on('error', (err) => {
         logger.warn({ err, group, subdir }, 'Group dir watcher error');
         watcher.close();
+        // Remove stale entry so the group can be re-watched
+        wState.dirWatchers.delete(group);
       });
       if (watcher.unref) watcher.unref();
       entry[subdir] = watcher;
@@ -296,6 +298,20 @@ export function startIpcWatcher(deps: IpcDeps): void {
 
   fallbackPoll();
   logger.info({ mode: wState.watcherMode }, 'IPC watcher started');
+}
+
+export function stopIpcWatcher(): void {
+  teardownWatchers();
+  if (wState.debounceTimer) {
+    clearTimeout(wState.debounceTimer);
+    wState.debounceTimer = null;
+  }
+  if (wState.fallbackTimer) {
+    clearTimeout(wState.fallbackTimer);
+    wState.fallbackTimer = null;
+  }
+  ipcWatcherRunning = false;
+  logger.info('IPC watcher stopped');
 }
 
 export async function processTaskIpc(
