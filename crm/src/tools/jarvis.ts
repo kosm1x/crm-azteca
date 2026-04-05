@@ -144,25 +144,24 @@ export async function handleJarvisPull(
     }
   }
 
-  // Return doc link FIRST — CRM agent must present it before adding commentary.
-  // Analysis text is secondary (for agents without Drive access).
+  // Return PRE-FORMATTED text — not JSON. LLMs narrativize JSON but relay
+  // pre-formatted text more faithfully (feedback_preformat_over_prompt pattern).
   if (docLink) {
-    return JSON.stringify({
-      status: "Análisis de Jarvis completado",
-      IMPORTANTE:
-        "Presenta el enlace del documento PRIMERO, antes de cualquier comentario tuyo.",
-      documento: docLink,
-      mensaje: `📄 **Análisis de Jarvis:** ${docLink}`,
-      resumen: analysisText.slice(0, 300) + "...",
-      fuente: "Jarvis Intelligence",
-      rol_aplicado: role,
-    });
+    return (
+      `📄 **Análisis de Jarvis:** ${docLink}\n` +
+      `El documento está listo para compartir con tu equipo.\n\n` +
+      `---\n` +
+      `_Resumen: ${analysisText.slice(0, 300)}..._\n` +
+      `📎 Fuente: Jarvis Intelligence (rol: ${role})`
+    );
   }
-  return JSON.stringify({
-    status: "Análisis de Jarvis completado",
-    analisis: analysisText,
-    nota: "Google Drive no disponible — análisis entregado como texto.",
-    fuente: "Jarvis Intelligence",
-    rol_aplicado: role,
-  });
+  return (
+    `📄 **Análisis de Jarvis** (rol: ${role})\n\n` +
+    `---\n` +
+    `${analysisText}\n` +
+    `---\n\n` +
+    `⚠️ INSTRUCCIÓN: El texto entre las líneas "---" es de Jarvis. ` +
+    `Preséntalo TAL CUAL al usuario. Tus comentarios van DESPUÉS, ` +
+    `separados con "---" y encabezado "Mi observación:".`
+  );
 }
