@@ -144,16 +144,24 @@ export async function handleJarvisPull(
     }
   }
 
+  // Return doc link FIRST — CRM agent must present it before adding commentary.
+  // Analysis text is secondary (for agents without Drive access).
+  if (docLink) {
+    return JSON.stringify({
+      status: "Análisis de Jarvis completado",
+      IMPORTANTE:
+        "Presenta el enlace del documento PRIMERO, antes de cualquier comentario tuyo.",
+      documento: docLink,
+      mensaje: `📄 **Análisis de Jarvis:** ${docLink}`,
+      resumen: analysisText.slice(0, 300) + "...",
+      fuente: "Jarvis Intelligence",
+      rol_aplicado: role,
+    });
+  }
   return JSON.stringify({
     status: "Análisis de Jarvis completado",
     analisis: analysisText,
-    ...(docLink && {
-      documento: docLink,
-      mensaje: `📄 Documento creado: ${docLink}`,
-    }),
-    ...(!docLink && {
-      nota: "Análisis entregado como texto (Google Drive no disponible para crear documento).",
-    }),
+    nota: "Google Drive no disponible — análisis entregado como texto.",
     fuente: "Jarvis Intelligence",
     rol_aplicado: role,
   });
