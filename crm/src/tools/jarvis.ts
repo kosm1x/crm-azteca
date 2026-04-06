@@ -11,10 +11,13 @@ import type { ToolContext } from "./index.js";
 import { isWorkspaceEnabled, getProvider } from "../workspace/provider.js";
 import { getPersonaEmail } from "./helpers.js";
 
-// Default to Docker bridge gateway — container's localhost is itself, not the host.
-// 172.17.0.1 is the standard Docker bridge gateway to reach host services.
-const JARVIS_URL = process.env.JARVIS_API_URL ?? "http://172.17.0.1:8080";
-const JARVIS_KEY = process.env.JARVIS_API_KEY ?? "";
+// Read at call time, not import time — secrets are injected after module load.
+function getJarvisConfig() {
+  return {
+    url: process.env.JARVIS_API_URL ?? "http://172.17.0.1:8080",
+    key: process.env.JARVIS_API_KEY ?? "",
+  };
+}
 
 export const TOOL_JARVIS_PULL = {
   type: "function" as const,
@@ -63,7 +66,12 @@ export async function handleJarvisPull(
   args: Record<string, unknown>,
   ctx: ToolContext,
 ): Promise<string> {
-  if (!JARVIS_KEY) {
+  const { url: jarvisUrl, key: jarvisKey } = getJarvisConfig();
+  console.log(
+    `[jarvis-pull] url=${jarvisUrl} key=${jarvisKey ? "set" : "MISSING"}`,
+  );
+
+  if (!jarvisKey) {
     return JSON.stringify({
       error:
         "Integración con Jarvis no configurada. Contacta al administrador.",
@@ -77,11 +85,11 @@ export async function handleJarvisPull(
   // Step 1: Call Jarvis
   let analysisText: string;
   try {
-    const response = await fetch(`${JARVIS_URL}/api/jarvis-pull`, {
+    const response = await fetch(`${jarvisUrl}/api/jarvis-pull`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Api-Key": JARVIS_KEY,
+        "X-Api-Key": jarvisKey,
       },
       body: JSON.stringify({ query, role, context }),
       signal: AbortSignal.timeout(30_000),

@@ -693,8 +693,17 @@ async function main(): Promise<void> {
   // Build SDK env: merge secrets into process.env for the SDK only.
   // Secrets never touch process.env itself, so Bash subprocesses can't see them.
   const sdkEnv: Record<string, string | undefined> = { ...process.env };
+  const secretKeys = Object.keys(containerInput.secrets || {});
+  console.log(
+    `[crm-agent-runner] Secrets received: ${secretKeys.length} keys (${secretKeys.filter((k) => k.startsWith('JARVIS')).join(', ') || 'no JARVIS keys'})`,
+  );
   for (const [key, value] of Object.entries(containerInput.secrets || {})) {
     sdkEnv[key] = value;
+    // Internal API keys (non-credential) also set on process.env
+    // so tool handlers can read them (jarvis_pull, etc.)
+    if (key.startsWith('JARVIS_') || key.startsWith('INFERENCE_')) {
+      process.env[key] = value;
+    }
   }
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));

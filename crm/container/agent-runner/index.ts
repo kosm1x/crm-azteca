@@ -451,6 +451,7 @@ async function main(): Promise<void> {
         key.startsWith("INFERENCE_") ||
         key.startsWith("HINDSIGHT_") ||
         key.startsWith("GOOGLE_") ||
+        key.startsWith("JARVIS_") ||
         key === "BRAVE_SEARCH_API_KEY" ||
         key === "BITLY_API_TOKEN"
       ) {
