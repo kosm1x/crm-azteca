@@ -21,8 +21,8 @@ import { randomBytes } from "node:crypto";
 const EVICT_DIR = join("/tmp", "crm-tool-results");
 const MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 const CLEANUP_PROBABILITY = 0.1;
+let dirCreated = false;
 
-/** Default threshold for eviction (chars). */
 export const EVICTION_THRESHOLD = 8_000;
 
 /**
@@ -42,7 +42,10 @@ export function evictToFile(
 
   let filePath: string | undefined;
   try {
-    mkdirSync(EVICT_DIR, { recursive: true });
+    if (!dirCreated) {
+      mkdirSync(EVICT_DIR, { recursive: true });
+      dirCreated = true;
+    }
     const suffix = randomBytes(4).toString("hex");
     filePath = join(EVICT_DIR, `${filenamePrefix}-${Date.now()}-${suffix}.txt`);
     writeFileSync(filePath, content, "utf-8");

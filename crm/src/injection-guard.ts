@@ -298,8 +298,12 @@ function detectHomoglyphs(text: string): boolean {
   return Object.keys(HOMOGLYPHS).some((char) => text.includes(char));
 }
 
+/** Non-global version for .test() — avoids lastIndex state bug with /g flag. */
+const ZERO_WIDTH_TEST_RE =
+  /[\u200B-\u200D\u200E\u200F\uFEFF\u2060\u2061-\u2064\u00AD]/;
+
 function detectZeroWidth(text: string): boolean {
-  return ZERO_WIDTH_RE.test(text);
+  return ZERO_WIDTH_TEST_RE.test(text);
 }
 
 // ---------------------------------------------------------------------------

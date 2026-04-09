@@ -161,7 +161,7 @@ describe("context-compressor", () => {
         (m) => m.role === "tool" && m.tool_call_id === "tc-1",
       );
       expect(stub).toBeDefined();
-      expect(stub?.content).toContain("compressed");
+      expect(stub?.content).toContain("missing");
     });
   });
 

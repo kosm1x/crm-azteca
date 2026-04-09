@@ -544,6 +544,35 @@ export async function inferWithTools(
   const TOOL_CHAIN_WARNING = 8;
   const MIN_REMAINING_MS = 15_000;
 
+  // Cache providers once — avoid re-reading env vars on every exit path
+  const providers = loadProviders();
+  const primaryModel = providers[0]?.model ?? "unknown";
+
+  /** Record cost and build return value. Non-fatal — logs on failure. */
+  function buildResult(content: string, lastProvider?: string) {
+    try {
+      recordCost({
+        model: primaryModel,
+        promptTokens: totalPrompt,
+        completionTokens: totalCompletion,
+        provider: lastProvider,
+      });
+    } catch (err) {
+      logger.warn(
+        { error: err instanceof Error ? err.message : String(err) },
+        "failed to record cost",
+      );
+    }
+    return {
+      content,
+      messages: conversation,
+      totalUsage: {
+        prompt_tokens: totalPrompt,
+        completion_tokens: totalCompletion,
+      },
+    };
+  }
+
   // --- Session repair: fix structural anomalies before first call ---
   const repairStats = repairSession(conversation);
   if (
@@ -631,28 +660,7 @@ export async function inferWithTools(
         response.content ??
         "[El sistema detectó un bucle y detuvo las llamadas de herramientas.]";
       conversation.push({ role: "assistant", content });
-
-      // Record cost for forced wrap-up
-      try {
-        const providers = loadProviders();
-        recordCost({
-          model: providers[0]?.model ?? "unknown",
-          promptTokens: totalPrompt,
-          completionTokens: totalCompletion,
-          provider: response.provider,
-        });
-      } catch {
-        /* non-fatal */
-      }
-
-      return {
-        content,
-        messages: conversation,
-        totalUsage: {
-          prompt_tokens: totalPrompt,
-          completion_tokens: totalCompletion,
-        },
-      };
+      return buildResult(content, response.provider);
     }
 
     const response = await infer(
@@ -666,28 +674,7 @@ export async function inferWithTools(
     if (!response.tool_calls || response.tool_calls.length === 0) {
       const content = response.content ?? "";
       conversation.push({ role: "assistant", content });
-
-      // Record cost
-      try {
-        const providers = loadProviders();
-        recordCost({
-          model: providers[0]?.model ?? "unknown",
-          promptTokens: totalPrompt,
-          completionTokens: totalCompletion,
-          provider: response.provider,
-        });
-      } catch {
-        /* non-fatal */
-      }
-
-      return {
-        content,
-        messages: conversation,
-        totalUsage: {
-          prompt_tokens: totalPrompt,
-          completion_tokens: totalCompletion,
-        },
-      };
+      return buildResult(content, response.provider);
     }
 
     // Execute tool calls in parallel, with preflight + eviction + injection scanning
@@ -750,10 +737,7 @@ export async function inferWithTools(
           }
         }
 
-        // --- Tool result eviction (oversized results → temp file) ---
-        result = maybeEvict(result, toolName);
-
-        // --- Injection scanning for untrusted tool results ---
+        // --- Injection scanning BEFORE eviction (scan full content, not truncated) ---
         if (isUntrustedTool(toolName)) {
           const injection = analyzeInjection(result, toolName);
           if (injection.risk === "high" || injection.risk === "medium") {
@@ -769,6 +753,9 @@ export async function inferWithTools(
             );
           }
         }
+
+        // --- Tool result eviction (oversized results → temp file) ---
+        result = maybeEvict(result, toolName);
 
         // --- Record tool metrics ---
         toolMetrics.record(toolName, Date.now() - toolStart, success);
@@ -833,28 +820,9 @@ export async function inferWithTools(
   const lastAssistant = [...conversation]
     .reverse()
     .find((m) => m.role === "assistant");
-
-  // Record cost for completed loop
-  try {
-    const providers = loadProviders();
-    recordCost({
-      model: providers[0]?.model ?? "unknown",
-      promptTokens: totalPrompt,
-      completionTokens: totalCompletion,
-    });
-  } catch {
-    /* non-fatal */
-  }
-
-  return {
-    content:
-      (typeof lastAssistant?.content === "string"
-        ? lastAssistant.content
-        : null) ?? "[max tool rounds reached]",
-    messages: conversation,
-    totalUsage: {
-      prompt_tokens: totalPrompt,
-      completion_tokens: totalCompletion,
-    },
-  };
+  const fallbackContent =
+    (typeof lastAssistant?.content === "string"
+      ? lastAssistant.content
+      : null) ?? "[max tool rounds reached]";
+  return buildResult(fallbackContent);
 }

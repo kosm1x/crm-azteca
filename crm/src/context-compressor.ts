@@ -11,6 +11,7 @@
  */
 
 import type { ChatMessage } from "./inference-adapter.js";
+import { repairSession } from "./session-repair.js";
 
 // ---------------------------------------------------------------------------
 // Token estimation
@@ -148,55 +149,14 @@ export function pairDrain(
 // ---------------------------------------------------------------------------
 
 /**
- * Remove orphaned tool results (whose assistant tool_call was removed)
- * and insert stubs for orphaned tool_calls (whose results were removed).
+ * Delegates to repairSession for orphan cleanup and synthetic stub insertion.
+ * Returns total number of fixes applied.
  */
 export function sanitizeToolPairs(messages: ChatMessage[]): number {
-  const callIds = new Set<string>();
-  const resultIds = new Set<string>();
-
-  for (const msg of messages) {
-    if (msg.role === "assistant" && msg.tool_calls) {
-      for (const tc of msg.tool_calls) callIds.add(tc.id);
-    }
-    if (msg.role === "tool" && msg.tool_call_id) {
-      resultIds.add(msg.tool_call_id);
-    }
-  }
-
-  let removed = 0;
-
-  // Remove orphaned tool results
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (
-      msg.role === "tool" &&
-      msg.tool_call_id &&
-      !callIds.has(msg.tool_call_id)
-    ) {
-      messages.splice(i, 1);
-      removed++;
-    }
-  }
-
-  // Insert stubs for unmatched tool calls
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    if (msg.role === "assistant" && msg.tool_calls) {
-      for (const tc of msg.tool_calls) {
-        if (!resultIds.has(tc.id)) {
-          messages.splice(i + 1, 0, {
-            role: "tool",
-            content: "[Result compressed]",
-            tool_call_id: tc.id,
-          });
-          removed--; // net accounting
-        }
-      }
-    }
-  }
-
-  return removed;
+  const stats = repairSession(messages);
+  return (
+    stats.orphanedToolResults + stats.syntheticErrors + stats.dedupedResults
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -150,6 +150,20 @@ function windowStatus(spend: number, limit: number): WindowStatus {
 }
 
 export function getThreeWindowStatus(): ThreeWindowStatus {
+  ensureSchema();
+  const db = getDatabase();
+  // Single query for all three windows — one index scan instead of three
+  const row = db
+    .prepare(
+      `SELECT
+         COALESCE(SUM(CASE WHEN created_at >= strftime('%Y-%m-%d %H:00:00','now') THEN cost_usd END), 0) AS hourly,
+         COALESCE(SUM(CASE WHEN created_at >= datetime('now','-1 day') THEN cost_usd END), 0) AS daily,
+         COALESCE(SUM(cost_usd), 0) AS monthly
+       FROM cost_ledger
+       WHERE created_at >= strftime('%Y-%m-01','now')`,
+    )
+    .get() as { hourly: number; daily: number; monthly: number };
+
   const hourlyLimit = parseFloat(process.env.BUDGET_HOURLY_LIMIT_USD ?? "1.00");
   const dailyLimit = parseFloat(process.env.BUDGET_DAILY_LIMIT_USD ?? "10.00");
   const monthlyLimit = parseFloat(
@@ -157,9 +171,9 @@ export function getThreeWindowStatus(): ThreeWindowStatus {
   );
 
   return {
-    hourly: windowStatus(getHourlySpend(), hourlyLimit),
-    daily: windowStatus(getDailySpend(), dailyLimit),
-    monthly: windowStatus(getMonthlySpend(), monthlyLimit),
+    hourly: windowStatus(row.hourly, hourlyLimit),
+    daily: windowStatus(row.daily, dailyLimit),
+    monthly: windowStatus(row.monthly, monthlyLimit),
   };
 }
 
