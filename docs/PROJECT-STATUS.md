@@ -1,7 +1,7 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-03-29 (Pre-pilot hardening: 8/10 critical items fixed — 70 tools, 28 tables, 1018 tests, 53 test files)
+> Last updated: 2026-04-09 (Jarvis integration + timezone hardening — 71 tools, 28 tables, 1018 tests, 53 test files)
 > Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`, `COMPETITIVE-ASSESSMENT.md`
 
 ## Phase Tracker
@@ -208,11 +208,11 @@
 | Metric               | Current (Now)             | Phase 14 (Target) | Remaining |
 | -------------------- | ------------------------- | ----------------- | --------- |
 | SQLite tables        | 28                        | 30                | +2        |
-| CRM tools            | 70                        | ~77               | +7        |
-| Test files           | 52                        | ~55               | +3        |
-| Tests passing        | 1004                      | 1100+             | +96       |
+| CRM tools            | 71                        | ~78               | +7        |
+| Test files           | 53                        | ~56               | +3        |
+| Tests passing        | 1018                      | 1100+             | +82       |
 | Persona templates    | 8                         | 8 (dynamic)       | —         |
-| Role counts          | AE:51 Ger:54 Dir:63 VP:61 | —                 | —         |
+| Role counts          | AE:51 Ger:55 Dir:66 VP:64 | —                 | —         |
 | Claude Code sessions | ~24                       | 26                | ~2        |
 | Estimated hours      | —                         | 65–85h            | —         |
 
@@ -343,3 +343,10 @@ These rules hold across ALL phases:
 | `f7354a3` | fix: prospect tool bloat — content-similarity dedup (>60% word overlap), 5 source cap, 150-char descriptions, compact JSON keys                                                                                                                                                                                              |
 | `2aad2d4` | fix: client confidentiality firewall — hard rule in global.md (never cross-reference competitors), inline aviso in prospect tool for new accounts                                                                                                                                                                            |
 | `78106f3` | fix: reporting framework — anti-repetition prompt rules, buscar_web 150-char cap, pipeline 20-result cap. Prevents 3-4x content duplication in briefs                                                                                                                                                                        |
+| `362b69c` | feat: jarvis_pull tool — CRM agents request strategic analysis from Jarvis                                                                                                                                                                                                                                                   |
+| `a530384` | feat: jarvis_pull auto-creates Google Doc with formatted analysis                                                                                                                                                                                                                                                            |
+| `a1a8d75` | feat: add Jarvis section to CRM persona templates                                                                                                                                                                                                                                                                            |
+| `60f00b3` | perf: unified cron scheduler + event-driven IPC (fs.watch)                                                                                                                                                                                                                                                                   |
+| `266a0e0` | fix: QA audit — scheduler crash recovery, IPC shutdown cleanup                                                                                                                                                                                                                                                               |
+| `81b3a55` | fix: CRM→Jarvis — 90s timeout + Google Docs HTML formatting                                                                                                                                                                                                                                                                  |
+| `3942763` | fix: enforce Mexico City timezone across all user-facing dates and dedup logic                                                                                                                                                                                                                                               |

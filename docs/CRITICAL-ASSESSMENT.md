@@ -8,7 +8,7 @@
 
 ## TL;DR
 
-Pulso is architecturally impressive and functionally rich — 70 tools, 28 tables, 1004 tests, overnight intelligence, cross-agent patterns, warmth scoring, template evolution. But every component operates on assumptions, seed data, and prompt-engineered behavior that hasn't survived contact with a single real sales cycle. The common thread across all 10 flaws: the system is optimized for features instead of validated for reality.
+Pulso is architecturally impressive and functionally rich — 71 tools, 28 tables, 1018 tests, overnight intelligence, cross-agent patterns, warmth scoring, template evolution. But every component operates on assumptions, seed data, and prompt-engineered behavior that hasn't survived contact with a single real sales cycle. The common thread across all 10 flaws: the system is optimized for features instead of validated for reality.
 
 ---
 
@@ -16,7 +16,7 @@ Pulso is architecturally impressive and functionally rich — 70 tools, 28 table
 
 The competitive assessment says it plainly: "0 production hours, 0 real users, 0 validated outcomes." But the project behaves as if production validation is one of many items on the roadmap. It's not. It's the only item that matters.
 
-70 tools, 28 tables, 1004 tests, overnight analyzers, cross-agent pattern detection, warmth scoring, template evolution, feedback engines. Phase 11 of a system that has never survived contact with a single real salesperson.
+71 tools, 28 tables, 1018 tests, overnight analyzers, cross-agent pattern detection, warmth scoring, template evolution, feedback engines. Phase 11 of a system that has never survived contact with a single real salesperson.
 
 Every feature added before production validation is a bet that assumptions about sales behavior are correct. The overnight engine assumes salespeople want AI-generated proposals at 2 AM. The warmth scoring assumes recency decays linearly over 90 days. The approval workflow assumes managers will review records in WhatsApp. None of these have been tested against reality.
 
@@ -111,7 +111,7 @@ Intelligence flows up (AE to Manager to Director to VP) and never sideways (AE t
 
 ## 8. 70 Tools Is Already Context-Heavy — And It Only Grows
 
-Each tool definition consumes 200-500 tokens in the context window (name, description, JSON schema, enum values). 70 tools = 14-35K tokens injected into every single conversation turn. Add the system prompt templates (5K tokens), conversation history (40-100K for deep conversations), and 60-140K of a 200K context window is consumed before the LLM starts reasoning.
+Each tool definition consumes 200-500 tokens in the context window (name, description, JSON schema, enum values). 71 tools = 14-35K tokens injected into every single conversation turn. Add the system prompt templates (5K tokens), conversation history (40-100K for deep conversations), and 60-140K of a 200K context window is consumed before the LLM starts reasoning.
 
 This works today. But tools are added every phase. At 100 tools, context pressure becomes real. At 150, it's acute. And there's no dynamic filtering — an AE asking "que hora es?" gets all 51 tools injected whether relevant or not.
 
@@ -141,7 +141,7 @@ There's no longitudinal trend (is this relationship warming or cooling?), no neg
 
 Baileys is an unofficial, reverse-engineered WhatsApp library. It breaks when Meta updates their protocol. It violates WhatsApp's Terms of Service. Meta can (and has) banned numbers using unofficial APIs.
 
-Every feature built — 70 tools, overnight intelligence, warmth scoring, cross-agent patterns — sits on top of a dependency that could stop working tomorrow with one Meta policy change. The competitive assessment frames this as a "medium-term risk." It's not. It's the single point of failure for the entire business.
+Every feature built — 71 tools, overnight intelligence, warmth scoring, cross-agent patterns — sits on top of a dependency that could stop working tomorrow with one Meta policy change. The competitive assessment frames this as a "medium-term risk." It's not. It's the single point of failure for the entire business.
 
 The engine is called NanoClaw and is designed as a platform. But it has exactly one channel: WhatsApp via Baileys. If Baileys breaks, Pulso is dead.
 

@@ -44,8 +44,8 @@ For a team of 50 salespeople, this creates ~68 WhatsApp groups, each with an iso
 ### Message Flow
 
 ```
-WhatsApp → engine (NanoClaw) → Direct tools (70 CRM tools via inference adapter)
-                                    ├── Role-based tool filtering (AE:51, Ger:54, Dir:63, VP:61)
+WhatsApp → engine (NanoClaw) → Direct tools (71 CRM tools via inference adapter)
+                                    ├── Role-based tool filtering (AE:51, Ger:55, Dir:66, VP:64)
                                     ├── Google Workspace (Gmail, Drive, Calendar, Slides, Sheets)
                                     ├── Hybrid RAG (sqlite-vec KNN + FTS5 keyword + RRF fusion)
                                     ├── Long-term memory (Hindsight sidecar or SQLite fallback)
@@ -70,14 +70,14 @@ WhatsApp → engine (NanoClaw) → Direct tools (70 CRM tools via inference adap
 
 ### Tools by Role
 
-| Role     | Tools | Capabilities                                                                                                                                                            |
-| -------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AE       | 51    | Log activities, manage deals, send emails, set reminders, search docs, web search, analytics, cross-sell, memory, user profile, approval requests, view insights/drafts |
-| Manager  | 54    | Team pipeline, quota rollups, coaching briefings, email, docs, web search, analytics, cross-sell, swarm analysis, approve/reject registrations, team insights, memory   |
-| Director | 63    | All manager tools + relationship intelligence (warmth, milestones, interactions), team pattern analysis, cross-agent insights, Drive creation (docs, sheets, slides)    |
-| VP       | 61    | Executive dashboards, org-wide visibility, relationship intelligence, cross-agent patterns, strategic insights, Drive creation, full analytics                          |
+| Role     | Tools | Capabilities                                                                                                                                                                  |
+| -------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AE       | 51    | Log activities, manage deals, send emails, set reminders, search docs, web search, analytics, cross-sell, memory, user profile, approval requests, view insights/drafts       |
+| Manager  | 55    | Team pipeline, quota rollups, coaching briefings, email, docs, web search, analytics, cross-sell, swarm analysis, approve/reject registrations, team insights, memory, Jarvis |
+| Director | 66    | All manager tools + relationship intelligence (warmth, milestones, interactions), team pattern analysis, cross-agent insights, Drive creation (docs, sheets, slides), Jarvis  |
+| VP       | 64    | Executive dashboards, org-wide visibility, relationship intelligence, cross-agent patterns, strategic insights, Drive creation, full analytics, Jarvis                        |
 
-70 unique tools total across activity logging, pipeline management, Google Workspace (Gmail, Drive, Calendar, Slides, Sheets), event tracking, document search (hybrid RAG), web search, historical analytics, cross-sell recommendations, parallel swarm analysis, follow-up reminders, long-term memory, approval workflows, commercial insights, pattern detection, package building, feedback tracking, user profiles, and relationship intelligence.
+71 unique tools total across activity logging, pipeline management, Google Workspace (Gmail, Drive, Calendar, Slides, Sheets), event tracking, document search (hybrid RAG), web search, historical analytics, cross-sell recommendations, parallel swarm analysis, follow-up reminders, long-term memory, approval workflows, commercial insights, pattern detection, package building, feedback tracking, user profiles, relationship intelligence, and Jarvis strategic analysis.
 
 ### Proactive Workflows
 
@@ -114,7 +114,7 @@ agentic-crm/
 │   │   ├── schema.ts              # 28 CRM tables (incl. sqlite-vec, FTS5, template evolution)
 │   │   ├── bootstrap.ts           # Schema init + hooks
 │   │   ├── hierarchy.ts           # Org chart traversal + access control
-│   │   ├── tools/                 # 70 tools across 20+ modules
+│   │   ├── tools/                 # 71 tools across 20+ modules
 │   │   │   ├── index.ts           # Tool registry + role-based filtering
 │   │   │   ├── gmail.ts           # Email search, read, draft
 │   │   │   ├── drive.ts           # Drive list, read, create docs/sheets/slides
@@ -149,7 +149,7 @@ agentic-crm/
 │   │   └── template-selector.ts   # Template evolution (A/B variant tracking)
 │   ├── container/       # CRM container image (extends engine)
 │   ├── groups/          # CLAUDE.md templates per role (ae, manager, director, vp)
-│   └── tests/           # 1004 tests across 52 test files
+│   └── tests/           # 1018 tests across 53 test files
 ├── scripts/             # Bootstrap, registration, data import
 ├── docs/                # Vision, roadmap, competitive assessment
 └── groups/              # Live group folders (created at runtime)
@@ -203,7 +203,7 @@ agentic-crm/
 npm run dev              # Run with hot reload (tsx watch)
 npm run build            # Compile TypeScript
 npm run typecheck        # Type check
-npm run test             # Run all tests (1004 across 52 files)
+npm run test             # Run all tests (1018 across 53 files)
 npm run bootstrap        # First-time CRM setup
 npm run register-team    # Register team from CSV/JSON
 npm run build:container  # Build CRM container (extends engine image)

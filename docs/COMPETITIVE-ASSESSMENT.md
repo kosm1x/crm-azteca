@@ -20,7 +20,7 @@ Salesforce Agentforce is a $500M ARR enterprise platform with 23,000 customers a
 | **Market share**          | ~23% of CRM market                                                  | N/A                                                                          |
 | **AI Models**             | GPT-4o, Claude Sonnet 4, BYOLLM                                     | GLM-5 primary, Qwen 3.5+ fallback                                            |
 | **Reasoning**             | Atlas Engine (ReAct + vector search + feedback loops)               | inferWithTools loop (tool-calling + conversation memory)                     |
-| **Tools**                 | 15 actions/topic, 15 topics/agent, via Flows/Apex/MuleSoft          | 70 tools, role-scoped (AE:51, Ger:54, Dir:63, VP:61)                         |
+| **Tools**                 | 15 actions/topic, 15 topics/agent, via Flows/Apex/MuleSoft          | 71 tools, role-scoped (AE:51, Ger:55, Dir:66, VP:64)                         |
 | **Agent limits**          | 20 per org                                                          | 4 WhatsApp groups                                                            |
 | **Channels**              | Web, SMS, WhatsApp, Messenger, Apple, LINE, Slack, Voice            | WhatsApp only (Baileys — unofficial API)                                     |
 | **CRM depth**             | Native to Sales/Service/Marketing/Commerce Cloud                    | 28 SQLite tables, activities, proposals, quotas, relationships, intelligence |
@@ -60,7 +60,7 @@ Salesforce Agentforce is a $500M ARR enterprise platform with 23,000 customers a
 ### 5. Tool Chain Flexibility
 
 - **Agentforce**: 15 actions/topic ceiling. Must use Flows/Apex framework
-- **CRM-Azteca**: 70 tools with no artificial ceiling. Role-based scoping, dynamic tool injection per message. Add tools in TypeScript minutes, not Salesforce admin hours
+- **CRM-Azteca**: 71 tools with no artificial ceiling. Role-based scoping, dynamic tool injection per message. Add tools in TypeScript minutes, not Salesforce admin hours
 
 ### 6. Code Ownership and Auditability
 

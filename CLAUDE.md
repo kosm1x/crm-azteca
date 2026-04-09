@@ -19,7 +19,8 @@ Agentic CRM for media ad sales. NanoClaw engine at `engine/`, all CRM code at `c
 | `crm/src/warmth.ts`              | Executive relationship warmth scoring (recency + frequency + quality)                                                       |
 | `crm/src/warmth-scheduler.ts`    | Nightly warmth recomputation (4 AM MX via IPC)                                                                              |
 | `crm/src/memory/`                | Pluggable memory service (Hindsight sidecar or SQLite fallback)                                                             |
-| `crm/src/tools/index.ts`         | Tool registry: 70 tools, role-based filtering                                                                               |
+| `crm/src/tools/index.ts`         | Tool registry: 71 tools, role-based filtering                                                                               |
+| `crm/src/tools/jarvis.ts`        | Jarvis strategic analysis pull tool (Google Doc output)                                                                     |
 | `crm/src/tools/perfil.ts`        | User profile tool (actualizar_perfil + getUserProfile + formatProfileSection)                                               |
 | `crm/src/package-builder.ts`     | Creative package composition (historical mix, peers, inventory, rate cards)                                                 |
 | `crm/src/tools/package-tools.ts` | 3 package tools (construir_paquete, consultar_oportunidades_inventario, comparar_paquetes)                                  |
@@ -38,9 +39,9 @@ Agentic CRM for media ad sales. NanoClaw engine at `engine/`, all CRM code at `c
 | `crm/src/dashboard/server.ts`    | Dashboard HTTP server + router (7 API endpoints)                                                                            |
 | `crm/groups/global.md`           | Global CLAUDE.md template (schema, queries, rules, scope guard, disambiguation)                                             |
 | `crm/groups/ae.md`               | AE persona template (51 tools)                                                                                              |
-| `crm/groups/manager.md`          | Manager persona template (54 tools)                                                                                         |
-| `crm/groups/director.md`         | Director persona template (63 tools, incl. 7 relationship + 4 email)                                                        |
-| `crm/groups/vp.md`               | VP persona template (61 tools, incl. 7 relationship + 4 email)                                                              |
+| `crm/groups/manager.md`          | Manager persona template (55 tools)                                                                                         |
+| `crm/groups/director.md`         | Director persona template (66 tools, incl. 7 relationship + 4 email)                                                        |
+| `crm/groups/vp.md`               | VP persona template (64 tools, incl. 7 relationship + 4 email)                                                              |
 
 ### Engine Hook Points (DO NOT modify beyond these 7 files)
 
@@ -111,7 +112,7 @@ git subtree pull --prefix=engine https://github.com/qwibitai/nanoclaw.git main -
 
 ```
 WhatsApp → engine (NanoClaw) → Direct tools (71 CRM tools via inference adapter)
-                                    ├── Role-based tool filtering (AE:51, Ger:54, Dir:63, VP:61)
+                                    ├── Role-based tool filtering (AE:51, Ger:55, Dir:66, VP:64)
                                     ├── Google Workspace (Gmail, Drive, Calendar)
                                     ├── Hybrid RAG (vector + FTS5 keyword + RRF fusion)
                                     ├── Long-term memory (Hindsight or SQLite fallback)
@@ -142,13 +143,13 @@ WhatsApp → engine (NanoClaw) → Direct tools (71 CRM tools via inference adap
 ## Testing
 
 ```bash
-npm run test         # All tests (1004 across 52 files)
+npm run test         # All tests (1018 across 53 files)
 ```
 
 Tests live in:
 
-- `engine/src/*.test.ts` — Engine tests
-- `crm/tests/*.test.ts` — CRM tests (41 test files)
+- `engine/src/*.test.ts` — Engine tests (11 test files)
+- `crm/tests/*.test.ts` — CRM tests (42 test files)
 
 ## Service Operations
 
