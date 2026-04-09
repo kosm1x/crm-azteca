@@ -13,7 +13,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "bootstrap": "tsx scripts/bootstrap.sh",
-    "register-team": "tsx scripts/register-hierarchy.ts"
+    "register-team": "tsx scripts/register-hierarchy.ts",
+    "simulate": "tsx scripts/simulator/index.ts",
+    "simulate:regression": "tsx scripts/simulator/index.ts --mode regression",
+    "simulate:morning": "tsx scripts/simulator/index.ts --mode morning",
+    "simulate:evening": "tsx scripts/simulator/index.ts --mode evening",
+    "simulate:dry": "tsx scripts/simulator/index.ts --dry-run"
   },
   "dependencies": {
     "cron-parser": "^5.5.0",

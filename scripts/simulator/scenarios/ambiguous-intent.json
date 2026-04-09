@@ -1,0 +1,18 @@
+{
+  "id": "ambiguous-intent",
+  "name": "Ambiguous Intent - Should Trigger Briefing",
+  "description": "AE sends a vague 'how are things' message. Agent should interpret as briefing request, not generic chat.",
+  "role": "ae",
+  "persona_id": "per-013",
+  "tags": ["edge-case", "ae", "morning", "regression"],
+  "turns": [
+    {
+      "user": "Como vamos?",
+      "expect": {
+        "tools_called": ["generar_briefing"],
+        "response_not_contains": ["no puedo", "no tengo", "error"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

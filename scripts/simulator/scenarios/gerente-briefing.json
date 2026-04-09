@@ -1,0 +1,18 @@
+{
+  "id": "gerente-briefing",
+  "name": "Gerente Team Briefing",
+  "description": "Gerente asks for team briefing. Agent should generate a team-level briefing with sentiment and compliance.",
+  "role": "gerente",
+  "persona_id": "per-004",
+  "tags": ["briefing", "gerente", "morning", "regression"],
+  "turns": [
+    {
+      "user": "Buenos dias Miguel, como va el equipo esta semana?",
+      "expect": {
+        "tools_called": ["generar_briefing"],
+        "response_not_contains": ["no puedo", "error"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "build-package",
+  "name": "Build Media Package",
+  "description": "AE requests a media package for an account.",
+  "role": "ae",
+  "persona_id": "per-010",
+  "tags": ["packages", "ae", "regression"],
+  "turns": [
+    {
+      "user": "Arma un paquete de medios para Coca-Cola, Dia de las Madres, presupuesto de 8 millones",
+      "expect": {
+        "tools_called": ["construir_paquete"],
+        "response_not_contains": ["no puedo", "error de configuracion"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

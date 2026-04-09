@@ -1,0 +1,18 @@
+{
+  "id": "create-proposal",
+  "name": "Create Proposal",
+  "description": "AE creates a new proposal for an existing account.",
+  "role": "ae",
+  "persona_id": "per-010",
+  "tags": ["pipeline", "ae", "create", "regression"],
+  "turns": [
+    {
+      "user": "Quiero crear una propuesta para Coca-Cola. Campaña de verano, estimado 5 millones de pesos, tipo estacional, medios tv_abierta y digital",
+      "expect": {
+        "tools_called": ["crear_propuesta"],
+        "response_not_contains": ["no puedo", "error"],
+        "max_rounds": 4
+      }
+    }
+  ]
+}

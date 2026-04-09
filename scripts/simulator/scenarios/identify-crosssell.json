@@ -1,0 +1,18 @@
+{
+  "id": "identify-crosssell",
+  "name": "Identify Cross-Sell Opportunities",
+  "description": "Director asks for cross-sell opportunities in a vertical.",
+  "role": "director",
+  "persona_id": "per-002",
+  "tags": ["crosssell", "director", "evening", "regression"],
+  "turns": [
+    {
+      "user": "Hay oportunidades de cross-sell o upsell en el vertical de bebidas?",
+      "expect": {
+        "tools_called": ["recomendar_crosssell"],
+        "response_not_contains": ["no puedo", "error"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "empty-results",
+  "name": "Query Non-Existent Account",
+  "description": "AE queries for an account that doesn't exist. Agent should handle gracefully.",
+  "role": "ae",
+  "persona_id": "per-010",
+  "tags": ["edge-case", "ae", "regression"],
+  "turns": [
+    {
+      "user": "Dame el detalle de la cuenta de Apple Inc",
+      "expect": {
+        "response_not_contains": [
+          "error de sistema",
+          "stacktrace",
+          "undefined"
+        ],
+        "max_rounds": 3
+      }
+    }
+  ]
+}

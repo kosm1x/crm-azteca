@@ -1,0 +1,22 @@
+{
+  "id": "consult-insights",
+  "name": "Consult Overnight Insights",
+  "description": "Director asks about overnight analysis results.",
+  "role": "director",
+  "persona_id": "per-002",
+  "tags": ["insights", "director", "evening", "regression"],
+  "setup_sql": [
+    "INSERT OR IGNORE INTO insight_comercial (id, tipo, titulo, descripcion, cuenta_id, ae_id, estado, confianza, valor_potencial, fecha_expiracion, creado_en) VALUES ('ins-sim-001', 'calendario', 'Oportunidad Dia de las Madres - Coca-Cola', 'Coca-Cola compro campanas de Dia de las Madres los ultimos 3 anos (promedio $8.5M). No hay propuesta activa para este ano.', 'cta-001', 'per-010', 'nuevo', 0.85, 8500000, date('now', '+30 days'), datetime('now'))",
+    "INSERT OR IGNORE INTO insight_comercial (id, tipo, titulo, descripcion, cuenta_id, ae_id, estado, confianza, valor_potencial, fecha_expiracion, creado_en) VALUES ('ins-sim-002', 'inventario', 'Prime Day - Amazon Mexico', 'Prime Day (tentpole) 35% vendido. Amazon Mexico historicamente compra tentpoles. Ingreso remanente: $2.3M.', 'cta-006', 'per-015', 'nuevo', 0.55, 2300000, date('now', '+45 days'), datetime('now'))"
+  ],
+  "turns": [
+    {
+      "user": "Que salio del analisis nocturno? Hay oportunidades nuevas?",
+      "expect": {
+        "tools_called": ["consultar_insights"],
+        "response_not_contains": ["no puedo", "error", "no hay insights"],
+        "max_rounds": 4
+      }
+    }
+  ]
+}

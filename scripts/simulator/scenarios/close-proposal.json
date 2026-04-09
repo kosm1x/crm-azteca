@@ -1,0 +1,18 @@
+{
+  "id": "close-proposal",
+  "name": "Close Proposal as Lost",
+  "description": "AE closes a proposal as lost to competitor.",
+  "role": "ae",
+  "persona_id": "per-011",
+  "tags": ["pipeline", "ae", "close", "regression"],
+  "turns": [
+    {
+      "user": "Hay que cerrar la propuesta de P&G como perdida, se fueron con Televisa por precio",
+      "expect": {
+        "tools_called": ["cerrar_propuesta"],
+        "response_not_contains": ["no puedo"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

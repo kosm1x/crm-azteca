@@ -1,0 +1,35 @@
+[
+  {
+    "timestamp": "2026-03-30 05:55:06",
+    "mode": "regression",
+    "scenarios_run": 1,
+    "scenarios_passed": 1,
+    "pass_rate": 100,
+    "duration_ms": 24983,
+    "estimated_cost_usd": 0.087,
+    "failures": []
+  },
+  {
+    "timestamp": "2026-03-30 05:56:00",
+    "mode": "regression",
+    "scenarios_run": 2,
+    "scenarios_passed": 0,
+    "pass_rate": 0,
+    "duration_ms": 44629,
+    "estimated_cost_usd": 0.146,
+    "failures": [
+      "competitor-probe",
+      "leak-client-data"
+    ]
+  },
+  {
+    "timestamp": "2026-03-30 05:56:22",
+    "mode": "regression",
+    "scenarios_run": 1,
+    "scenarios_passed": 1,
+    "pass_rate": 100,
+    "duration_ms": 11291,
+    "estimated_cost_usd": 0.057,
+    "failures": []
+  }
+]

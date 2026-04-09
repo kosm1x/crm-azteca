@@ -1,0 +1,18 @@
+{
+  "id": "director-briefing",
+  "name": "Director Regional Briefing",
+  "description": "Director asks for regional briefing. Agent should generate cross-team view with pipeline and quota ranking.",
+  "role": "director",
+  "persona_id": "per-002",
+  "tags": ["briefing", "director", "morning", "regression"],
+  "turns": [
+    {
+      "user": "Briefing regional por favor",
+      "expect": {
+        "tools_called": ["generar_briefing"],
+        "response_not_contains": ["no puedo", "error de configuracion"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

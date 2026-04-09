@@ -1,0 +1,18 @@
+{
+  "id": "vp-briefing",
+  "name": "VP Organization Briefing",
+  "description": "VP asks how the organization is doing. Agent should generate org-wide briefing.",
+  "role": "vp",
+  "persona_id": "per-001",
+  "tags": ["briefing", "vp", "morning", "regression"],
+  "turns": [
+    {
+      "user": "Como va la organizacion? Dame el panorama completo",
+      "expect": {
+        "tools_called": ["generar_briefing"],
+        "response_not_contains": ["no puedo", "no tengo acceso"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

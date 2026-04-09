@@ -1,0 +1,21 @@
+{
+  "id": "act-on-insight",
+  "name": "Act on Insight - Convert to Draft",
+  "description": "Director converts an insight to a proposal draft.",
+  "role": "director",
+  "persona_id": "per-002",
+  "tags": ["insights", "director", "evening", "regression"],
+  "setup_sql": [
+    "INSERT OR IGNORE INTO insight_comercial (id, tipo, titulo, descripcion, cuenta_id, ae_id, estado, confianza, valor_potencial, fecha_expiracion, creado_en) VALUES ('ins-sim-act-001', 'calendario', 'Copa del Mundo - Telcel', 'Telcel compro paquetes deportivos 5 veces. Oportunidad Copa del Mundo $12M.', 'cta-003', 'per-017', 'nuevo', 0.90, 12000000, date('now', '+60 days'), datetime('now'))"
+  ],
+  "turns": [
+    {
+      "user": "Convierte el insight de Telcel sobre la Copa del Mundo en un borrador de propuesta",
+      "expect": {
+        "tools_called": ["actuar_insight"],
+        "response_not_contains": ["no puedo", "error"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

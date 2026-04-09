@@ -1,0 +1,19 @@
+{
+  "id": "ae-briefing",
+  "name": "AE Morning Briefing",
+  "description": "AE asks for morning briefing. Agent should call generar_briefing and present pipeline/quota summary.",
+  "role": "ae",
+  "persona_id": "per-010",
+  "tags": ["briefing", "ae", "morning", "regression"],
+  "turns": [
+    {
+      "user": "Buenos dias, dame mi briefing de hoy",
+      "expect": {
+        "tools_called": ["generar_briefing"],
+        "response_contains": ["propuesta"],
+        "response_not_contains": ["no puedo", "error de configuracion"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

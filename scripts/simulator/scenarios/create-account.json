@@ -1,0 +1,26 @@
+{
+  "id": "create-account",
+  "name": "Request New Account (Approval)",
+  "description": "AE requests a new account via approval workflow. Multi-turn: create then check pending.",
+  "role": "ae",
+  "persona_id": "per-010",
+  "tags": ["approvals", "ae", "regression"],
+  "turns": [
+    {
+      "user": "Necesito dar de alta una cuenta nueva: Grupo Modelo, directo, vertical Bebidas",
+      "expect": {
+        "tools_called": ["solicitar_cuenta"],
+        "response_contains": ["pendiente"],
+        "response_not_contains": ["no puedo", "error"],
+        "max_rounds": 4
+      }
+    },
+    {
+      "user": "Tengo cuentas pendientes de aprobacion?",
+      "expect": {
+        "tools_called": ["consultar_pendientes"],
+        "max_rounds": 3
+      }
+    }
+  ]
+}

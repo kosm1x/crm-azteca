@@ -1,0 +1,29 @@
+{
+  "id": "approve-account",
+  "name": "Manager Approves Account",
+  "description": "Gerente checks pending approvals and approves one.",
+  "role": "gerente",
+  "persona_id": "per-004",
+  "tags": ["approvals", "gerente", "regression"],
+  "setup_sql": [
+    "INSERT OR IGNORE INTO aprobacion_registro (id, tipo, nombre, vertical, tipo_cuenta, solicitante_id, estado, asignado_a, creado_en) VALUES ('apr-sim-001', 'cuenta', 'Grupo Modelo', 'Bebidas', 'directo', 'per-010', 'pendiente_gerente', 'per-004', datetime('now'))"
+  ],
+  "turns": [
+    {
+      "user": "Hay solicitudes pendientes de mi equipo?",
+      "expect": {
+        "tools_called": ["consultar_pendientes"],
+        "response_contains": ["modelo"],
+        "max_rounds": 3
+      }
+    },
+    {
+      "user": "Aprueba la solicitud de Grupo Modelo",
+      "expect": {
+        "tools_called": ["aprobar_registro"],
+        "response_not_contains": ["no puedo", "error"],
+        "max_rounds": 4
+      }
+    }
+  ]
+}

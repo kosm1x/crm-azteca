@@ -1,0 +1,18 @@
+{
+  "id": "update-proposal",
+  "name": "Update Proposal Stage",
+  "description": "AE advances a proposal to the next stage.",
+  "role": "ae",
+  "persona_id": "per-010",
+  "tags": ["pipeline", "ae", "update", "regression"],
+  "turns": [
+    {
+      "user": "La propuesta de Bimbo paso a en_negociacion, ya confirmaron que les interesa",
+      "expect": {
+        "tools_called": ["actualizar_propuesta"],
+        "response_not_contains": ["no puedo", "error"],
+        "max_rounds": 5
+      }
+    }
+  ]
+}

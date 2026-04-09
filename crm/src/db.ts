@@ -16,27 +16,38 @@ import * as sqliteVec from "sqlite-vec";
 import fs from "fs";
 import path from "path";
 
-const CRM_DB_PATH =
-  process.env.CRM_DB_PATH ??
-  path.join(process.cwd(), "data", "store", "crm.db");
+const DEFAULT_CRM_DB_PATH = path.join(process.cwd(), "data", "store", "crm.db");
+
+function getCrmDbPath(): string {
+  return process.env.CRM_DB_PATH ?? DEFAULT_CRM_DB_PATH;
+}
 
 let _db: InstanceType<typeof Database> | null = null;
 
 export function getDatabase(): InstanceType<typeof Database> {
   if (!_db) {
+    const CRM_DB_PATH = getCrmDbPath();
     fs.mkdirSync(path.dirname(CRM_DB_PATH), { recursive: true });
     _db = new Database(CRM_DB_PATH);
     // DELETE journal mode: no WAL/SHM files — required for Docker bind mounts on Windows.
     // The container opens the same file; WAL shared memory can't cross the bind mount boundary.
     _db.pragma("journal_mode = DELETE");
     _db.pragma("synchronous = NORMAL");
-    _db.pragma("cache_size = -64000");
+    _db.pragma("cache_size = -32000");
     _db.pragma("temp_store = MEMORY");
-    _db.pragma("mmap_size = 268435456");
+    _db.pragma("mmap_size = 67108864");
     _db.pragma("foreign_keys = ON");
     // Wait up to 5s on SQLITE_BUSY before failing (concurrent container writes)
     _db.pragma("busy_timeout = 5000");
     sqliteVec.load(_db);
   }
   return _db;
+}
+
+/** @internal — exposed for simulator/test DB sandbox resets. */
+export function _resetDatabase(): void {
+  if (_db) {
+    _db.close();
+    _db = null;
+  }
 }
