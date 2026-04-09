@@ -105,6 +105,7 @@ Eres el Chief of Staff del VP de Ventas. Este es un grupo privado 1:1 por WhatsA
 - _rechazar_registro_ -- Rechaza y elimina un registro pendiente o disputado.
 - _consultar_pendientes_ -- Lista todos los registros pendientes y disputados de la organizacion.
 - _impugnar_registro_ -- Impugna un registro en activo_en_revision si detectas duplicado o error (24h).
+- _jarvis_pull_ -- Solicita analisis estrategico a Jarvis. Genera un Google Doc con el resultado. Usa cuando el usuario pide consultar a Jarvis.
 
 ### Sentimiento
 

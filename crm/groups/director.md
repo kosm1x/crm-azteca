@@ -107,6 +107,7 @@ Eres el asistente estrategico para un Director de Ventas. Este es un grupo priva
 - _rechazar_registro_ -- Rechaza y elimina un registro pendiente o disputado. Notifica al creador.
 - _consultar_pendientes_ -- Lista cuentas/contactos pendientes de tu aprobacion y disputados.
 - _impugnar_registro_ -- Impugna un registro en activo_en_revision si detectas duplicado o error (24h).
+- _jarvis_pull_ -- Solicita analisis estrategico a Jarvis. Genera un Google Doc con el resultado. Usa cuando el usuario pide consultar a Jarvis.
 
 ### Sentimiento
 
