@@ -537,8 +537,11 @@ export async function inferWithTools(
     process.env.INFERENCE_TOKEN_BUDGET ?? "25000",
     10,
   );
+  // Default sized for GLM-5 / Qwen3.5-plus (~128k tokens) with headroom for
+  // completion and tool-call JSON. Compression triggers at 0.8 × this (80k).
+  // Override with INFERENCE_CONTEXT_LIMIT env var if using a smaller model.
   const contextLimit = parseInt(
-    process.env.INFERENCE_CONTEXT_LIMIT ?? "60000",
+    process.env.INFERENCE_CONTEXT_LIMIT ?? "100000",
     10,
   );
   const TOOL_CHAIN_WARNING = 8;
@@ -548,11 +551,22 @@ export async function inferWithTools(
   const providers = loadProviders();
   const primaryModel = providers[0]?.model ?? "unknown";
 
+  // Map provider name → model so cost attribution uses the actual model
+  // served (not always the primary). This matters when the fallback kicked
+  // in: previously every fallback call was billed to the primary in the
+  // cost_ledger, which made monthly reconciliation wrong.
+  const providerModelByName = new Map<string, string>();
+  for (const p of providers) {
+    providerModelByName.set(p.name, p.model);
+  }
+
   /** Record cost and build return value. Non-fatal — logs on failure. */
   function buildResult(content: string, lastProvider?: string) {
     try {
+      const resolvedModel =
+        (lastProvider && providerModelByName.get(lastProvider)) || primaryModel;
       recordCost({
-        model: primaryModel,
+        model: resolvedModel,
         promptTokens: totalPrompt,
         completionTokens: totalCompletion,
         provider: lastProvider,
@@ -755,7 +769,7 @@ export async function inferWithTools(
         }
 
         // --- Tool result eviction (oversized results → temp file) ---
-        result = maybeEvict(result, toolName);
+        result = await maybeEvict(result, toolName);
 
         // --- Record tool metrics ---
         toolMetrics.record(toolName, Date.now() - toolStart, success);

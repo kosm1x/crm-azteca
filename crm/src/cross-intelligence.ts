@@ -14,6 +14,7 @@
 
 import { getDatabase } from "./db.js";
 import { logger } from "./logger.js";
+import { getMxDateStr, getMxYear } from "./tools/helpers.js";
 
 function genId(): string {
   return `pat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -42,9 +43,11 @@ function detectVerticalTrends(
   db: ReturnType<typeof getDatabase>,
   lote: string,
 ): number {
-  // Compare current quarter pipeline value vs same quarter last year per vertical
-  const year = new Date().getFullYear();
-  const month = new Date().getMonth() + 1;
+  // Compare current quarter pipeline value vs same quarter last year per vertical.
+  // Uses Mexico City timezone so year/quarter boundaries align with business dates
+  // (not UTC — avoids the Dec 31 evening MX → Jan 1 UTC off-by-one).
+  const year = getMxYear();
+  const month = parseInt(getMxDateStr().split("-")[1], 10);
   const quarter = Math.ceil(month / 3);
   const qStart = `${year}-${String((quarter - 1) * 3 + 1).padStart(2, "0")}-01`;
   const qEnd = `${year}-${String(quarter * 3).padStart(2, "0")}-31`;

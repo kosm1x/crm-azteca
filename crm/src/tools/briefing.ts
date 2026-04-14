@@ -43,72 +43,72 @@ async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
   }
 }
 
-async function fetchEnrichment(): Promise<{
-  clima: unknown | null;
-  feriados_proximos: unknown | null;
-}> {
+async function fetchClima(): Promise<unknown | null> {
   const now = Date.now();
-
-  // Weather
-  let clima: unknown | null = null;
   if (
     enrichmentCache.clima &&
     now - enrichmentCache.clima.ts < ENRICHMENT_TTL
   ) {
-    clima = enrichmentCache.clima.data;
-  } else {
-    try {
-      const res = await fetchWithTimeout(
-        "https://api.open-meteo.com/v1/forecast?latitude=19.4326&longitude=-99.1332&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=3",
-        5000,
-      );
-      if (res.ok) {
-        const raw = (await res.json()) as any;
-        clima = {
-          temperatura: raw.current_weather?.temperature,
-          viento_kmh: raw.current_weather?.windspeed,
-          pronostico: (raw.daily?.time ?? [])
-            .slice(0, 3)
-            .map((d: string, i: number) => ({
-              fecha: d,
-              max: raw.daily?.temperature_2m_max?.[i],
-              min: raw.daily?.temperature_2m_min?.[i],
-              lluvia_mm: raw.daily?.precipitation_sum?.[i],
-            })),
-        };
-        enrichmentCache.clima = { data: clima, ts: now };
-      }
-    } catch {
-      /* silent */
-    }
+    return enrichmentCache.clima.data;
   }
+  try {
+    const res = await fetchWithTimeout(
+      "https://api.open-meteo.com/v1/forecast?latitude=19.4326&longitude=-99.1332&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=3",
+      5000,
+    );
+    if (!res.ok) return null;
+    const raw = (await res.json()) as any;
+    const clima = {
+      temperatura: raw.current_weather?.temperature,
+      viento_kmh: raw.current_weather?.windspeed,
+      pronostico: (raw.daily?.time ?? [])
+        .slice(0, 3)
+        .map((d: string, i: number) => ({
+          fecha: d,
+          max: raw.daily?.temperature_2m_max?.[i],
+          min: raw.daily?.temperature_2m_min?.[i],
+          lluvia_mm: raw.daily?.precipitation_sum?.[i],
+        })),
+    };
+    enrichmentCache.clima = { data: clima, ts: now };
+    return clima;
+  } catch {
+    return null;
+  }
+}
 
-  // Holidays
-  let feriados: unknown | null = null;
+async function fetchFeriados(): Promise<unknown | null> {
+  const now = Date.now();
   if (
     enrichmentCache.feriados &&
     now - enrichmentCache.feriados.ts < ENRICHMENT_TTL
   ) {
-    feriados = enrichmentCache.feriados.data;
-  } else {
-    try {
-      const res = await fetchWithTimeout(
-        "https://date.nager.at/api/v3/NextPublicHolidays/MX",
-        5000,
-      );
-      if (res.ok) {
-        const raw = (await res.json()) as any[];
-        feriados = raw.slice(0, 3).map((h: any) => ({
-          fecha: h.date,
-          nombre: h.localName,
-        }));
-        enrichmentCache.feriados = { data: feriados, ts: now };
-      }
-    } catch {
-      /* silent */
-    }
+    return enrichmentCache.feriados.data;
   }
+  try {
+    const res = await fetchWithTimeout(
+      "https://date.nager.at/api/v3/NextPublicHolidays/MX",
+      5000,
+    );
+    if (!res.ok) return null;
+    const raw = (await res.json()) as any[];
+    const feriados = raw.slice(0, 3).map((h: any) => ({
+      fecha: h.date,
+      nombre: h.localName,
+    }));
+    enrichmentCache.feriados = { data: feriados, ts: now };
+    return feriados;
+  } catch {
+    return null;
+  }
+}
 
+async function fetchEnrichment(): Promise<{
+  clima: unknown | null;
+  feriados_proximos: unknown | null;
+}> {
+  // Parallel fetch — independent APIs, previously serialized for ~10s worst case.
+  const [clima, feriados] = await Promise.all([fetchClima(), fetchFeriados()]);
   return { clima, feriados_proximos: feriados };
 }
 

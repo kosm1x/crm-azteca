@@ -119,9 +119,13 @@ export function getDailySpend(): number {
 export function getMonthlySpend(): number {
   ensureSchema();
   const db = getDatabase();
+  // Monthly window must align with Mexico City month boundaries. SQLite's
+  // 'now' is UTC, so subtract the MX offset before formatting the month
+  // start, then add it back so the comparison is apples-to-apples with the
+  // UTC-stored created_at column.
   const row = db
     .prepare(
-      "SELECT COALESCE(SUM(cost_usd), 0) AS total FROM cost_ledger WHERE created_at >= strftime('%Y-%m-01', 'now')",
+      "SELECT COALESCE(SUM(cost_usd), 0) AS total FROM cost_ledger WHERE created_at >= datetime('now','-6 hours','start of month','+6 hours')",
     )
     .get() as { total: number };
   return row.total;
@@ -152,7 +156,9 @@ function windowStatus(spend: number, limit: number): WindowStatus {
 export function getThreeWindowStatus(): ThreeWindowStatus {
   ensureSchema();
   const db = getDatabase();
-  // Single query for all three windows — one index scan instead of three
+  // Single query for all three windows — one index scan instead of three.
+  // Hourly and daily are relative or whole-hour-aligned (MX is UTC-6, no DST),
+  // so UTC math works. Monthly must explicitly honor Mexico City month start.
   const row = db
     .prepare(
       `SELECT
@@ -160,7 +166,7 @@ export function getThreeWindowStatus(): ThreeWindowStatus {
          COALESCE(SUM(CASE WHEN created_at >= datetime('now','-1 day') THEN cost_usd END), 0) AS daily,
          COALESCE(SUM(cost_usd), 0) AS monthly
        FROM cost_ledger
-       WHERE created_at >= strftime('%Y-%m-01','now')`,
+       WHERE created_at >= datetime('now','-6 hours','start of month','+6 hours')`,
     )
     .get() as { hourly: number; daily: number; monthly: number };
 

@@ -12,9 +12,19 @@ const logger = parentLogger.child({ component: "embedding" });
 
 const embeddingBreaker = new CircuitBreaker({ name: "embedding" });
 
+// Whether the most recent embedding batch used the local trigram fallback
+// (true = degraded). Surfaced so tools like buscar_documentos can warn the
+// user that semantic search quality is temporarily reduced.
+let lastEmbeddingDegraded = false;
+
+export function isEmbeddingDegraded(): boolean {
+  return lastEmbeddingDegraded;
+}
+
 /** @internal — exposed for testing only */
 export function _resetEmbeddingBreaker(): void {
   embeddingBreaker.reset();
+  lastEmbeddingDegraded = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,16 +122,19 @@ export async function embedBatch(texts: string[]): Promise<Float32Array[]> {
   const endpoint = getEndpoint();
   if (!endpoint) {
     logger.warn("No embedding API configured — using local fallback");
+    lastEmbeddingDegraded = true;
     return texts.map((t) => embedTextLocal(t));
   }
 
   // Skip all batches to local fallback if circuit is open
   if (embeddingBreaker.isOpen()) {
     logger.warn("Embedding circuit open — using local fallback for all");
+    lastEmbeddingDegraded = true;
     return texts.map((t) => embedTextLocal(t));
   }
 
   const results: Float32Array[] = new Array(texts.length);
+  let usedFallback = false;
 
   for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
@@ -137,6 +150,7 @@ export async function embedBatch(texts: string[]): Promise<Float32Array[]> {
         { err, batchStart: i, batchSize: batch.length },
         "Embedding API failed — falling back to local",
       );
+      usedFallback = true;
       for (let j = 0; j < batch.length; j++) {
         results[i + j] = embedTextLocal(batch[j]);
       }
@@ -154,6 +168,7 @@ export async function embedBatch(texts: string[]): Promise<Float32Array[]> {
     }
   }
 
+  lastEmbeddingDegraded = usedFallback;
   return results;
 }
 

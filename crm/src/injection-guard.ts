@@ -42,8 +42,19 @@ export function isUntrustedTool(name: string): boolean {
 // Unicode normalization
 // ---------------------------------------------------------------------------
 
-/** Cyrillic → Latin homoglyph map (most common visual spoofs). */
+/**
+ * Latin homoglyph map — most common visual spoofs.
+ *
+ * Includes:
+ *   - Cyrillic lookalikes (classic Russian prompt-injection vector)
+ *   - Greek lookalikes
+ *   - Latin Extended diacritics (macron/caron) that resemble plain letters
+ *     in many fonts. These are the obvious vector for Spanish-language
+ *     injection — regular Spanish diacritics (á é í ó ú ñ ü) are NOT
+ *     included because they're legitimate characters in the language.
+ */
 const HOMOGLYPHS: Record<string, string> = {
+  // Cyrillic lowercase
   "\u0430": "a",
   "\u0435": "e",
   "\u043E": "o",
@@ -52,6 +63,7 @@ const HOMOGLYPHS: Record<string, string> = {
   "\u0443": "y",
   "\u0445": "x",
   "\u0456": "i",
+  // Cyrillic uppercase
   "\u0410": "A",
   "\u0415": "E",
   "\u041E": "O",
@@ -59,6 +71,41 @@ const HOMOGLYPHS: Record<string, string> = {
   "\u0421": "C",
   "\u0423": "Y",
   "\u0425": "X",
+  // Greek lowercase
+  "\u03B1": "a", // α
+  "\u03BF": "o", // ο
+  "\u03B5": "e", // ε
+  "\u03C1": "p", // ρ
+  "\u03C5": "u", // υ
+  "\u03BD": "v", // ν
+  "\u03BA": "k", // κ
+  // Greek uppercase
+  "\u0391": "A", // Α
+  "\u039F": "O", // Ο
+  "\u0395": "E", // Ε
+  "\u03A1": "P", // Ρ
+  // Latin Extended-A (macron / caron) — lookalikes in most fonts
+  "\u0101": "a", // ā
+  "\u0113": "e", // ē
+  "\u012B": "i", // ī
+  "\u014D": "o", // ō
+  "\u016B": "u", // ū
+  "\u01CE": "a", // ǎ
+  "\u011B": "e", // ě
+  "\u01D0": "i", // ǐ
+  "\u01D2": "o", // ǒ
+  "\u01D4": "u", // ǔ
+  "\u0100": "A", // Ā
+  "\u0112": "E", // Ē
+  "\u012A": "I", // Ī
+  "\u014C": "O", // Ō
+  "\u016A": "U", // Ū
+  // Mathematical alphanumeric bold italic (common jailbreak vector)
+  "\u{1D44E}": "a",
+  "\u{1D452}": "e",
+  "\u{1D456}": "i",
+  "\u{1D45C}": "o",
+  "\u{1D462}": "u",
 };
 
 const ZERO_WIDTH_RE =

@@ -7,7 +7,6 @@
  * Prepared statements are lazily cached on first use for performance.
  */
 
-import type Database from "better-sqlite3";
 import { getDatabase } from "./db.js";
 
 export interface Persona {
@@ -42,14 +41,14 @@ function buildStatements() {
       "SELECT * FROM persona WHERE reporta_a = ? AND activo = 1",
     ),
     isManagerOf: db.prepare(
-      "SELECT 1 AS ok FROM persona WHERE id = ? AND reporta_a = ?",
+      "SELECT 1 AS ok FROM persona WHERE id = ? AND reporta_a = ? AND activo = 1",
     ),
     isDirectorOf: db.prepare(`
-      SELECT 1 AS ok FROM persona WHERE id = ? AND (
+      SELECT 1 AS ok FROM persona WHERE id = ? AND activo = 1 AND (
         reporta_a = ?
         OR EXISTS (
           SELECT 1 FROM persona AS mgr
-          WHERE mgr.id = persona.reporta_a AND mgr.reporta_a = ?
+          WHERE mgr.id = persona.reporta_a AND mgr.reporta_a = ? AND mgr.activo = 1
         )
       )
     `),

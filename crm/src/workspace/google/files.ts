@@ -16,6 +16,34 @@ import type {
   SyncFile,
 } from "../types.js";
 
+/**
+ * Wrap a Google API promise with an explicit timeout. googleapis defaults
+ * can hang 2+ minutes on a partial outage, which blocks the inference loop.
+ * 15s is enough for normal calls and small uploads; populateSlides/Sheets
+ * uses a longer value because large decks legitimately take longer.
+ */
+const GOOGLE_TIMEOUT_MS = 15_000;
+const GOOGLE_WRITE_TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Google API timeout (${label}, ${ms}ms)`)),
+      ms,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 /** Lightweight markdown → HTML for Google Docs upload. No external deps. */
 function markdownToHtml(md: string): string {
   return (
@@ -72,12 +100,16 @@ export async function listFiles(
   if (folderId) qParts.push(`'${folderId}' in parents`);
   qParts.push("trashed = false");
 
-  const res = await drive.files.list({
-    q: qParts.join(" and "),
-    pageSize: limit,
-    fields: "files(id, name, mimeType, modifiedTime)",
-    orderBy: "modifiedTime desc",
-  });
+  const res = await withTimeout(
+    drive.files.list({
+      q: qParts.join(" and "),
+      pageSize: limit,
+      fields: "files(id, name, mimeType, modifiedTime)",
+      orderBy: "modifiedTime desc",
+    }),
+    GOOGLE_TIMEOUT_MS,
+    "drive.files.list",
+  );
 
   return (res.data.files ?? []).map((f) => ({
     id: f.id ?? "",
@@ -93,28 +125,37 @@ export async function readFile(
 ): Promise<FileContent> {
   const drive = getDriveClient(email);
 
-  const meta = await drive.files.get({
-    fileId,
-    fields: "id, name, mimeType, size",
-  });
+  const meta = await withTimeout(
+    drive.files.get({
+      fileId,
+      fields: "id, name, mimeType, size",
+    }),
+    GOOGLE_TIMEOUT_MS,
+    "drive.files.get",
+  );
 
   const nombre = meta.data.name ?? "";
   const tipo = meta.data.mimeType ?? "";
 
   let contenido = "";
   if (GOOGLE_DOC_MIMES.includes(tipo)) {
-    const exported = await drive.files.export({
-      fileId,
-      mimeType: "text/plain",
-    });
+    const exported = await withTimeout(
+      drive.files.export({
+        fileId,
+        mimeType: "text/plain",
+      }),
+      GOOGLE_TIMEOUT_MS,
+      "drive.files.export",
+    );
     contenido =
       typeof exported.data === "string"
         ? exported.data
         : JSON.stringify(exported.data);
   } else {
-    const downloaded = await drive.files.get(
-      { fileId, alt: "media" },
-      { responseType: "text" },
+    const downloaded = await withTimeout(
+      drive.files.get({ fileId, alt: "media" }, { responseType: "text" }),
+      GOOGLE_TIMEOUT_MS,
+      "drive.files.get(media)",
     );
     contenido =
       typeof downloaded.data === "string"
@@ -144,20 +185,32 @@ export async function createDocument(
   const fileMetadata: Record<string, unknown> = { name, mimeType };
   if (folderId) fileMetadata.parents = [folderId];
 
-  const created = await drive.files.create({
-    requestBody: fileMetadata,
-    fields: "id, name, mimeType, webViewLink",
-  });
+  const created = await withTimeout(
+    drive.files.create({
+      requestBody: fileMetadata,
+      fields: "id, name, mimeType, webViewLink",
+    }),
+    GOOGLE_WRITE_TIMEOUT_MS,
+    "drive.files.create",
+  );
 
   const fileId = created.data.id!;
 
   // Make accessible via link
-  await drive.permissions.create({
-    fileId,
-    requestBody: { role: "reader", type: "anyone" },
-  });
+  await withTimeout(
+    drive.permissions.create({
+      fileId,
+      requestBody: { role: "reader", type: "anyone" },
+    }),
+    GOOGLE_TIMEOUT_MS,
+    "drive.permissions.create",
+  );
 
-  const updated = await drive.files.get({ fileId, fields: "webViewLink" });
+  const updated = await withTimeout(
+    drive.files.get({ fileId, fields: "webViewLink" }),
+    GOOGLE_TIMEOUT_MS,
+    "drive.files.get(link)",
+  );
   const webLink = updated.data.webViewLink ?? null;
 
   // Populate content
@@ -166,10 +219,14 @@ export async function createDocument(
       if (type === "documento") {
         // Convert markdown to basic HTML so Google Docs renders formatting
         const html = markdownToHtml(content);
-        await drive.files.update({
-          fileId,
-          media: { mimeType: "text/html", body: html },
-        });
+        await withTimeout(
+          drive.files.update({
+            fileId,
+            media: { mimeType: "text/html", body: html },
+          }),
+          GOOGLE_WRITE_TIMEOUT_MS,
+          "drive.files.update(doc)",
+        );
       } else if (type === "presentacion") {
         await populateSlides(email, fileId, content);
       } else if (type === "hoja_de_calculo") {

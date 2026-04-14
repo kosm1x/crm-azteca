@@ -102,15 +102,33 @@ export function consultar_cuentas(
   const scope = scopeFilter(ctx, "c.ae_id");
   const ef = estadoFilter(ctx, "c");
 
+  // Aggregate counts via CTEs (one scan each) instead of 3 correlated
+  // subqueries per account row. For N accounts the old shape was
+  // 3N queries; this is 2 scans regardless of N.
   const rows = db
     .prepare(
-      `SELECT c.nombre, c.tipo, c.vertical, c.agencia_medios, c.holding_agencia,
+      `WITH propuesta_stats AS (
+         SELECT cuenta_id,
+           SUM(CASE WHEN etapa NOT IN ('completada','perdida','cancelada') THEN 1 ELSE 0 END) AS propuestas_activas
+         FROM propuesta
+         GROUP BY cuenta_id
+       ),
+       contacto_stats AS (
+         SELECT cuenta_id,
+           SUM(CASE WHEN es_agencia = 0 THEN 1 ELSE 0 END) AS contactos_cliente,
+           SUM(CASE WHEN es_agencia = 1 THEN 1 ELSE 0 END) AS contactos_agencia
+         FROM contacto
+         GROUP BY cuenta_id
+       )
+       SELECT c.nombre, c.tipo, c.vertical, c.agencia_medios, c.holding_agencia,
               c.es_fundador, c.años_relacion,
-              (SELECT COUNT(*) FROM propuesta p WHERE p.cuenta_id = c.id AND p.etapa NOT IN ('completada','perdida','cancelada')) as propuestas_activas,
-              (SELECT COUNT(*) FROM contacto co WHERE co.cuenta_id = c.id AND co.es_agencia = 0) as contactos_cliente,
-              (SELECT COUNT(*) FROM contacto co WHERE co.cuenta_id = c.id AND co.es_agencia = 1) as contactos_agencia,
-              per.nombre as ejecutivo
+              COALESCE(ps.propuestas_activas, 0) AS propuestas_activas,
+              COALESCE(cs.contactos_cliente, 0) AS contactos_cliente,
+              COALESCE(cs.contactos_agencia, 0) AS contactos_agencia,
+              per.nombre AS ejecutivo
        FROM cuenta c
+       LEFT JOIN propuesta_stats ps ON ps.cuenta_id = c.id
+       LEFT JOIN contacto_stats cs ON cs.cuenta_id = c.id
        LEFT JOIN persona per ON per.id = c.ae_id
        WHERE 1=1 ${scope.where} ${ef.where}
        ORDER BY c.nombre`,

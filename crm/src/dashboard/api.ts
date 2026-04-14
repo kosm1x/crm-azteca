@@ -12,7 +12,13 @@ import {
   getCurrentWeek,
   dateCutoff,
   getMxDateStr,
+  getMxYear,
 } from "../tools/helpers.js";
+
+// Hard pagination cap for any dashboard query. Protects against unbounded
+// reads over a large org — shape of the data shouldn't exceed ~200 rows
+// per endpoint in normal use, 500 is a safety ceiling.
+const DASHBOARD_ROW_LIMIT = 500;
 
 type Trend = "mejorando" | "estable" | "deteriorando";
 
@@ -84,7 +90,7 @@ export function getCuota(
 ): unknown {
   const db = getDatabase();
   const semana = query.semana ? parseInt(query.semana, 10) : getCurrentWeek();
-  const año = new Date().getFullYear();
+  const año = getMxYear();
 
   let where = "WHERE q.año = ? AND q.semana = ?";
   const params: unknown[] = [año, semana];
@@ -110,6 +116,7 @@ export function getCuota(
     JOIN persona p ON q.persona_id = p.id
     ${where}
     ORDER BY q.porcentaje DESC
+    LIMIT ${DASHBOARD_ROW_LIMIT}
   `,
     )
     .all(...params) as any[];
@@ -138,7 +145,7 @@ export function getDescarga(
 ): unknown {
   const db = getDatabase();
   const semana = query.semana ? parseInt(query.semana, 10) : getCurrentWeek();
-  const año = query.año ? parseInt(query.año, 10) : new Date().getFullYear();
+  const año = query.año ? parseInt(query.año, 10) : getMxYear();
 
   let where = "WHERE d.año = ? AND d.semana = ?";
   const params: unknown[] = [año, semana];
@@ -169,6 +176,7 @@ export function getDescarga(
     JOIN cuenta c ON d.cuenta_id = c.id
     ${where}
     ORDER BY d.gap DESC
+    LIMIT ${DASHBOARD_ROW_LIMIT}
   `,
     )
     .all(...params) as any[];

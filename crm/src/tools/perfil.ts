@@ -14,16 +14,24 @@ import type { ToolContext } from "./index.js";
 // Profile fields
 // ---------------------------------------------------------------------------
 
-const VALID_CAMPOS = [
-  "estilo_comunicacion",
-  "preferencias_briefing",
-  "horario_trabajo",
-  "datos_personales",
-  "motivadores",
-  "notas",
-] as const;
+// Explicit allowlist map from validated enum to SQL column name.
+// This guarantees the column identifier is always a compile-time string
+// literal — even if future code accidentally weakens the enum check, the
+// map lookup still produces either a known column or `undefined` (never
+// attacker-controlled input). Defense-in-depth against SQL-identifier
+// injection via the `campo` parameter.
+const PROFILE_FIELD_COLUMNS = {
+  estilo_comunicacion: "estilo_comunicacion",
+  preferencias_briefing: "preferencias_briefing",
+  horario_trabajo: "horario_trabajo",
+  datos_personales: "datos_personales",
+  motivadores: "motivadores",
+  notas: "notas",
+} as const;
 
-type ProfileField = (typeof VALID_CAMPOS)[number];
+const VALID_CAMPOS = Object.keys(PROFILE_FIELD_COLUMNS) as ProfileField[];
+
+type ProfileField = keyof typeof PROFILE_FIELD_COLUMNS;
 
 const CAMPO_LABELS: Record<ProfileField, string> = {
   estilo_comunicacion: "Estilo",
@@ -98,7 +106,16 @@ export function actualizar_perfil(
   const campo = args.campo as string;
   const valor = args.valor as string;
 
-  if (!campo || !VALID_CAMPOS.includes(campo as ProfileField)) {
+  // Resolve the column name via explicit allowlist map. If `campo` is not a
+  // known key, `column` is undefined and we reject the call. This is
+  // belt-and-suspenders on top of the enum check below so future refactors
+  // can't accidentally reintroduce SQL-identifier injection via `campo`.
+  const column =
+    campo && Object.prototype.hasOwnProperty.call(PROFILE_FIELD_COLUMNS, campo)
+      ? PROFILE_FIELD_COLUMNS[campo as ProfileField]
+      : undefined;
+
+  if (!column) {
     return JSON.stringify({
       error: `Campo invalido. Campos validos: ${VALID_CAMPOS.join(", ")}`,
     });
@@ -117,11 +134,11 @@ export function actualizar_perfil(
 
   if (existing) {
     db.prepare(
-      `UPDATE perfil_usuario SET ${campo} = ?, fecha_actualizacion = datetime('now') WHERE persona_id = ?`,
+      `UPDATE perfil_usuario SET ${column} = ?, fecha_actualizacion = datetime('now','-6 hours') WHERE persona_id = ?`,
     ).run(valor, ctx.persona_id);
   } else {
     db.prepare(
-      `INSERT INTO perfil_usuario (persona_id, ${campo}, fecha_actualizacion) VALUES (?, ?, datetime('now'))`,
+      `INSERT INTO perfil_usuario (persona_id, ${column}, fecha_actualizacion) VALUES (?, ?, datetime('now','-6 hours'))`,
     ).run(ctx.persona_id, valor);
   }
 

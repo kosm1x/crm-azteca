@@ -106,15 +106,26 @@ export async function storeDocument(
   const db = getDatabase();
   const contentHash = crypto.createHash("sha256").update(text).digest("hex");
 
-  // Check if document already exists with same hash
+  // Check if document already exists with same hash. We also require
+  // `chunk_count > 0` so a document from a prior partial failure (doc row
+  // committed but embeddings missing) is retried instead of silently left
+  // un-indexed forever.
   const existing = db
     .prepare(
-      "SELECT id FROM crm_documents WHERE source = ? AND source_id = ? AND contenido_hash = ?",
+      "SELECT id, chunk_count FROM crm_documents WHERE source = ? AND source_id = ? AND contenido_hash = ?",
     )
-    .get(source, sourceId, contentHash) as any;
+    .get(source, sourceId, contentHash) as
+    | { id: string; chunk_count: number }
+    | undefined;
 
-  if (existing) {
+  if (existing && existing.chunk_count > 0) {
     return { docId: existing.id, chunkCount: 0 };
+  }
+
+  // If a zero-chunk row exists, delete it before re-inserting — otherwise
+  // the unique hash constraint (if any) would collide.
+  if (existing && existing.chunk_count === 0) {
+    db.prepare("DELETE FROM crm_documents WHERE id = ?").run(existing.id);
   }
 
   const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -206,6 +217,33 @@ function truncateFragment(text: string): string {
 // Vector search (sqlite-vec KNN)
 // ---------------------------------------------------------------------------
 
+// Short-lived cache for query embeddings so the same message round doesn't
+// hit the embedding API twice (once for vector search, once for a retry).
+// LRU-ish via Map insertion order, capped at 64 entries, 5-minute TTL.
+const QUERY_EMBEDDING_TTL_MS = 5 * 60 * 1000;
+const QUERY_EMBEDDING_CACHE_MAX = 64;
+type QueryEmbedding = Awaited<ReturnType<typeof embedText>>;
+const queryEmbeddingCache = new Map<
+  string,
+  { vec: QueryEmbedding; ts: number }
+>();
+
+async function embedQueryCached(query: string): Promise<QueryEmbedding> {
+  const now = Date.now();
+  const cached = queryEmbeddingCache.get(query);
+  if (cached && now - cached.ts < QUERY_EMBEDDING_TTL_MS) {
+    return cached.vec;
+  }
+  const vec = await embedText(query);
+  queryEmbeddingCache.set(query, { vec, ts: now });
+  // Trim oldest if over cap
+  if (queryEmbeddingCache.size > QUERY_EMBEDDING_CACHE_MAX) {
+    const firstKey = queryEmbeddingCache.keys().next().value;
+    if (firstKey !== undefined) queryEmbeddingCache.delete(firstKey);
+  }
+  return vec;
+}
+
 async function searchDocumentsVector(
   query: string,
   personaIds: string[],
@@ -213,7 +251,7 @@ async function searchDocumentsVector(
   tipoDoc?: string,
 ): Promise<RankedResult[]> {
   const db = getDatabase();
-  const queryEmbedding = await embedText(query);
+  const queryEmbedding = await embedQueryCached(query);
 
   const overFetchK = Math.max(limite * 5, 50);
 

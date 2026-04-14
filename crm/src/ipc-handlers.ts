@@ -438,28 +438,66 @@ export async function processCrmIpc(
         const groups = deps.registeredGroups();
         const targetFolders = data.target_folders;
 
+        // Per-send timeout — prevents a single stuck WhatsApp connection from
+        // blocking the whole broadcast. Failed sends are collected and logged
+        // as a warning so operators see which groups didn't receive.
+        const SEND_TIMEOUT_MS = 5000;
+        const sendWithTimeout = (jid: string): Promise<string | null> =>
+          new Promise((resolve) => {
+            const timer = setTimeout(
+              () => resolve(`${jid}:timeout`),
+              SEND_TIMEOUT_MS,
+            );
+            deps
+              .sendMessage(jid, text)
+              .then(() => {
+                clearTimeout(timer);
+                resolve(null);
+              })
+              .catch((err) => {
+                clearTimeout(timer);
+                resolve(
+                  `${jid}:${err instanceof Error ? err.message : String(err)}`,
+                );
+              });
+          });
+
+        const failures: string[] = [];
+
         if (targetFolders === "__ALL__") {
-          // Send to all registered groups
-          for (const jid of Object.keys(groups)) {
-            await deps.sendMessage(jid, text);
-          }
+          const jids = Object.keys(groups);
+          // Fan out in parallel so one slow group doesn't block the others.
+          const results = await Promise.all(
+            jids.map((j) => sendWithTimeout(j)),
+          );
+          for (const r of results) if (r) failures.push(r);
           logger.info(
-            { targets: Object.keys(groups).length },
+            { targets: jids.length, failures: failures.length },
             "Approval notification sent to all groups",
           );
         } else if (Array.isArray(targetFolders)) {
+          const jids: string[] = [];
           for (const folder of targetFolders) {
             const jid = Object.keys(groups).find(
               (k) => groups[k].folder === folder,
             );
-            if (jid) {
-              await deps.sendMessage(jid, text);
-            }
+            if (jid) jids.push(jid);
           }
+          const results = await Promise.all(
+            jids.map((j) => sendWithTimeout(j)),
+          );
+          for (const r of results) if (r) failures.push(r);
           logger.info(
-            { targets: (targetFolders as string[]).length },
+            {
+              targets: (targetFolders as string[]).length,
+              failures: failures.length,
+            },
             "Approval notification sent to target folders",
           );
+        }
+
+        if (failures.length > 0) {
+          logger.warn({ failures }, "Some approval notifications failed");
         }
 
         return true;

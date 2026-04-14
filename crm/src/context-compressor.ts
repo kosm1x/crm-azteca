@@ -117,10 +117,13 @@ export function pairDrain(
     ) {
       // Collect IDs of tool calls to remove
       const callIds = new Set(msg.tool_calls.map((tc) => tc.id));
-      // Find and remove matching tool results (they follow the assistant message)
+      // Find and remove matching tool results. Search across the FULL array
+      // (not just the drainable zone) so results that spill into the keepTail
+      // window are still removed atomically with their assistant message.
+      // Otherwise pairDrain would leave orphaned tool results mid-compression.
       const indicesToRemove = new Set<number>();
       indicesToRemove.add(i);
-      for (let j = i + 1; j < drainEnd; j++) {
+      for (let j = i + 1; j < total; j++) {
         const m = messages[j];
         if (
           m.role === "tool" &&

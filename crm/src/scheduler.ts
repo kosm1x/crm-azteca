@@ -68,9 +68,31 @@ const SCHEDULES: ScheduleEntry[] = [
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 let stopped = false;
 
+function hasPendingTask(tasksDir: string, name: string): boolean {
+  try {
+    const files = fs.readdirSync(tasksDir);
+    return files.some((f) => f.startsWith(`${name}-`) && f.endsWith(".json"));
+  } catch {
+    return false;
+  }
+}
+
 function writeTask(tasksDir: string, name: string, taskType: string): void {
   try {
     fs.mkdirSync(tasksDir, { recursive: true });
+
+    // Concurrency guard: if a task file with the same name prefix already
+    // exists, the previous run has not yet been consumed by the IPC watcher.
+    // Skipping avoids double-fires after a scheduler restart mid-batch
+    // (SQLITE_BUSY cascades + half-computed warmth rows).
+    if (hasPendingTask(tasksDir, name)) {
+      logger.warn(
+        { name, taskType },
+        "Scheduler task already pending — skipping to avoid overlap",
+      );
+      return;
+    }
+
     const filename = `${name}-${Date.now()}.json`;
     fs.writeFileSync(
       path.join(tasksDir, filename),

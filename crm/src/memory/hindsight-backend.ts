@@ -10,6 +10,7 @@
 
 import { HindsightClient } from "./hindsight-client.js";
 import { CircuitBreaker } from "../circuit-breaker.js";
+import { logger } from "../logger.js";
 import type {
   MemoryService,
   MemoryItem,
@@ -35,7 +36,13 @@ export class HindsightMemoryBackend implements MemoryService {
   }
 
   async retain(content: string, options: RetainOptions): Promise<void> {
-    if (this.breaker.isOpen()) return;
+    if (this.breaker.isOpen()) {
+      logger.warn(
+        { bank: options.bank, op: "retain" },
+        "hindsight circuit open — memory write skipped",
+      );
+      return;
+    }
 
     try {
       await this.ensureBank(options.bank);
@@ -47,11 +54,25 @@ export class HindsightMemoryBackend implements MemoryService {
       this.breaker.recordSuccess();
     } catch (err) {
       this.breaker.recordFailure(err);
+      logger.warn(
+        {
+          bank: options.bank,
+          op: "retain",
+          err: err instanceof Error ? err.message : String(err),
+        },
+        "hindsight retain failed",
+      );
     }
   }
 
   async recall(query: string, options: RecallOptions): Promise<MemoryItem[]> {
-    if (this.breaker.isOpen()) return [];
+    if (this.breaker.isOpen()) {
+      logger.warn(
+        { bank: options.bank, op: "recall" },
+        "hindsight circuit open — memory recall returning empty",
+      );
+      return [];
+    }
 
     try {
       await this.ensureBank(options.bank);
@@ -68,12 +89,26 @@ export class HindsightMemoryBackend implements MemoryService {
       }));
     } catch (err) {
       this.breaker.recordFailure(err);
+      logger.warn(
+        {
+          bank: options.bank,
+          op: "recall",
+          err: err instanceof Error ? err.message : String(err),
+        },
+        "hindsight recall failed",
+      );
       return [];
     }
   }
 
   async reflect(query: string, options: ReflectOptions): Promise<string> {
-    if (this.breaker.isOpen()) return "";
+    if (this.breaker.isOpen()) {
+      logger.warn(
+        { bank: options.bank, op: "reflect" },
+        "hindsight circuit open — reflection returning empty",
+      );
+      return "";
+    }
 
     try {
       await this.ensureBank(options.bank);
@@ -86,6 +121,14 @@ export class HindsightMemoryBackend implements MemoryService {
       return response.reflection;
     } catch (err) {
       this.breaker.recordFailure(err);
+      logger.warn(
+        {
+          bank: options.bank,
+          op: "reflect",
+          err: err instanceof Error ? err.message : String(err),
+        },
+        "hindsight reflect failed",
+      );
       return "";
     }
   }

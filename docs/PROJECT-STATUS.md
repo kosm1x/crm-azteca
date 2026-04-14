@@ -1,8 +1,8 @@
 # Pulso — Project Status
 
 > Quick-retrieval status file. Updated each `/session-wrap`.
-> Last updated: 2026-04-09 (Inference resilience port from MC — 71 tools, 29 tables, 1119 tests, 61 test files)
-> Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`, `COMPETITIVE-ASSESSMENT.md`
+> Last updated: 2026-04-14 (Full 6-dimension audit — 58 fixes landed across speed, resilience, logic, memory, intelligence, security; 71 tools, 29 tables, 1119 tests, 61 test files, all green)
+> Companion docs: `VISION.md`, `TECHNICAL-EVOLUTION-PLAN.md`, `COMPETITIVE-ASSESSMENT.md`, `AUDIT-2026-04-14.md`
 
 ## Phase Tracker
 

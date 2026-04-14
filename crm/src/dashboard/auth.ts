@@ -5,15 +5,19 @@
  * Tokens encode persona_id and rol with HMAC-SHA256 signature.
  */
 
-import crypto from 'crypto';
-import { getPersonById, getTeamIds, getFullTeamIds } from '../hierarchy.js';
-import type { ToolContext } from '../tools/index.js';
+import crypto from "crypto";
+import { getPersonById, getTeamIds, getFullTeamIds } from "../hierarchy.js";
+import type { ToolContext } from "../tools/index.js";
 
-const SECRET = process.env.DASHBOARD_JWT_SECRET || (
-  process.env.NODE_ENV === 'production'
-    ? (() => { throw new Error('DASHBOARD_JWT_SECRET must be set in production'); })()
-    : 'crm-dashboard-dev-secret'
-);
+// Process-lifetime random secret for dev/test so a hardcoded value can't be
+// reused across machines. Production still requires DASHBOARD_JWT_SECRET.
+const SECRET =
+  process.env.DASHBOARD_JWT_SECRET ||
+  (process.env.NODE_ENV === "production"
+    ? (() => {
+        throw new Error("DASHBOARD_JWT_SECRET must be set in production");
+      })()
+    : crypto.randomBytes(32).toString("hex"));
 const TOKEN_EXPIRY_DAYS = 30;
 
 // ---------------------------------------------------------------------------
@@ -21,7 +25,11 @@ const TOKEN_EXPIRY_DAYS = 30;
 // ---------------------------------------------------------------------------
 
 function base64url(buf: Buffer): string {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return buf
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 function base64urlEncode(obj: unknown): string {
@@ -29,13 +37,13 @@ function base64urlEncode(obj: unknown): string {
 }
 
 function base64urlDecode(str: string): unknown {
-  const padded = str.replace(/-/g, '+').replace(/_/g, '/');
-  return JSON.parse(Buffer.from(padded, 'base64').toString());
+  const padded = str.replace(/-/g, "+").replace(/_/g, "/");
+  return JSON.parse(Buffer.from(padded, "base64").toString());
 }
 
 function sign(header: string, payload: string): string {
   return base64url(
-    crypto.createHmac('sha256', SECRET).update(`${header}.${payload}`).digest(),
+    crypto.createHmac("sha256", SECRET).update(`${header}.${payload}`).digest(),
   );
 }
 
@@ -45,7 +53,7 @@ function sign(header: string, payload: string): string {
 
 export interface TokenPayload {
   persona_id: string;
-  rol: 'ae' | 'gerente' | 'director' | 'vp';
+  rol: "ae" | "gerente" | "director" | "vp";
   exp: number; // Unix timestamp
 }
 
@@ -54,7 +62,7 @@ export function createToken(personaId: string): string | null {
   const persona = getPersonById(personaId);
   if (!persona) return null;
 
-  const header = base64urlEncode({ alg: 'HS256', typ: 'JWT' });
+  const header = base64urlEncode({ alg: "HS256", typ: "JWT" });
   const payload = base64urlEncode({
     persona_id: persona.id,
     rol: persona.rol,
@@ -66,14 +74,17 @@ export function createToken(personaId: string): string | null {
 
 /** Verify a JWT and return the payload, or null if invalid/expired. */
 export function verifyToken(token: string): TokenPayload | null {
-  const parts = token.split('.');
+  const parts = token.split(".");
   if (parts.length !== 3) return null;
 
   const [header, payload, signature] = parts;
   const expected = sign(header, payload);
   const sigBuf = Buffer.from(signature);
   const expBuf = Buffer.from(expected);
-  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+  if (
+    sigBuf.length !== expBuf.length ||
+    !crypto.timingSafeEqual(sigBuf, expBuf)
+  ) {
     return null;
   }
 
@@ -100,10 +111,12 @@ export function buildContextFromToken(payload: TokenPayload): ToolContext {
 // Short link helpers — maps 8-char codes to JWT tokens (stored in DB)
 // ---------------------------------------------------------------------------
 
-let dbGetter: (() => import('better-sqlite3').Database) | null = null;
+let dbGetter: (() => import("better-sqlite3").Database) | null = null;
 
 /** Must be called once at startup so short links can use the DB. */
-export function initShortLinks(getDb: () => import('better-sqlite3').Database): void {
+export function initShortLinks(
+  getDb: () => import("better-sqlite3").Database,
+): void {
   dbGetter = getDb;
   const db = getDb();
   db.exec(`CREATE TABLE IF NOT EXISTS dashboard_links (
@@ -115,24 +128,34 @@ export function initShortLinks(getDb: () => import('better-sqlite3').Database): 
 }
 
 /** Create a short code for a JWT token. Reuses existing code if one exists for the same persona (within expiry). */
-export function createShortLink(token: string, personaId: string): string | null {
+export function createShortLink(
+  token: string,
+  personaId: string,
+): string | null {
   if (!dbGetter) return null;
   const db = dbGetter();
 
   // Reuse existing valid link for this persona
-  const existing = db.prepare(
-    `SELECT code, token FROM dashboard_links WHERE persona_id = ? ORDER BY created_at DESC LIMIT 1`,
-  ).get(personaId) as { code: string; token: string } | undefined;
+  const existing = db
+    .prepare(
+      `SELECT code, token FROM dashboard_links WHERE persona_id = ? ORDER BY created_at DESC LIMIT 1`,
+    )
+    .get(personaId) as { code: string; token: string } | undefined;
 
   if (existing && verifyToken(existing.token)) {
     // Update with fresh token
-    db.prepare(`UPDATE dashboard_links SET token = ? WHERE code = ?`).run(token, existing.code);
+    db.prepare(`UPDATE dashboard_links SET token = ? WHERE code = ?`).run(
+      token,
+      existing.code,
+    );
     return existing.code;
   }
 
   // Generate new 8-char code
-  const code = crypto.randomBytes(6).toString('base64url').slice(0, 8);
-  db.prepare(`INSERT INTO dashboard_links (code, token, persona_id) VALUES (?, ?, ?)`).run(code, token, personaId);
+  const code = crypto.randomBytes(6).toString("base64url").slice(0, 8);
+  db.prepare(
+    `INSERT INTO dashboard_links (code, token, persona_id) VALUES (?, ?, ?)`,
+  ).run(code, token, personaId);
   return code;
 }
 
@@ -140,6 +163,8 @@ export function createShortLink(token: string, personaId: string): string | null
 export function resolveShortLink(code: string): string | null {
   if (!dbGetter) return null;
   const db = dbGetter();
-  const row = db.prepare(`SELECT token FROM dashboard_links WHERE code = ?`).get(code) as { token: string } | undefined;
+  const row = db
+    .prepare(`SELECT token FROM dashboard_links WHERE code = ?`)
+    .get(code) as { token: string } | undefined;
   return row?.token ?? null;
 }

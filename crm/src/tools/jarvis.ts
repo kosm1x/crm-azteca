@@ -10,6 +10,9 @@
 import type { ToolContext } from "./index.js";
 import { isWorkspaceEnabled, getProvider } from "../workspace/provider.js";
 import { getPersonaEmail } from "./helpers.js";
+import { logger as parentLogger } from "../logger.js";
+
+const logger = parentLogger.child({ component: "jarvis-pull" });
 
 // Read at call time, not import time — secrets are injected after module load.
 function getJarvisConfig() {
@@ -67,9 +70,7 @@ export async function handleJarvisPull(
   ctx: ToolContext,
 ): Promise<string> {
   const { url: jarvisUrl, key: jarvisKey } = getJarvisConfig();
-  console.log(
-    `[jarvis-pull] url=${jarvisUrl} key=${jarvisKey ? "set" : "MISSING"}`,
-  );
+  logger.debug({ url: jarvisUrl, keySet: !!jarvisKey }, "jarvis pull starting");
 
   if (!jarvisKey) {
     return JSON.stringify({
@@ -139,8 +140,9 @@ export async function handleJarvisPull(
 
   const wsEnabled = isWorkspaceEnabled();
   const email = getPersonaEmail(ctx.persona_id);
-  console.log(
-    `[jarvis-pull] workspace=${wsEnabled} email=${email ?? "none"} persona=${ctx.persona_id}`,
+  logger.debug(
+    { workspace: wsEnabled, email: email ?? null, persona: ctx.persona_id },
+    "jarvis pull workspace resolved",
   );
 
   if (wsEnabled && email) {
@@ -152,13 +154,11 @@ export async function handleJarvisPull(
         docContent,
       );
       docLink = result.enlace ?? undefined;
-      console.log(
-        `[jarvis-pull] Doc created: ${docLink ?? "no link returned"}`,
-      );
+      logger.info({ docLink: docLink ?? null }, "jarvis pull doc created");
     } catch (err) {
-      console.warn(
-        `[jarvis-pull] Doc creation failed:`,
-        err instanceof Error ? err.message : err,
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "jarvis pull doc creation failed",
       );
     }
   }

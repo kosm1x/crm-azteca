@@ -114,6 +114,17 @@ export function getMxYear(): number {
 }
 
 /**
+ * YYYY-MM-DD HH:MM:SS in Mexico City timezone — SQLite datetime-compatible.
+ * Use this where you'd otherwise call `datetime('now')` in SQL but need a JS
+ * value (e.g., when binding as a parameter). For pure SQL defaults, prefer
+ * `datetime('now','-6 hours')` directly.
+ */
+export function getMxDateTimeStr(date?: Date): string {
+  // sv-SE locale produces "YYYY-MM-DD HH:MM:SS" which matches SQLite.
+  return (date ?? new Date()).toLocaleString("sv-SE", { timeZone: MX_TZ });
+}
+
+/**
  * Compute a date cutoff string for use as a SQL parameter.
  * Replaces template-interpolated `datetime('now', '-N days')` patterns.
  */

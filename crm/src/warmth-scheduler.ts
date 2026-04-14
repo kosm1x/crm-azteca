@@ -27,8 +27,10 @@ export function recomputeAllWarmth(): number {
   const getInteractions = db.prepare(
     "SELECT tipo, calidad, fecha FROM interaccion_ejecutiva WHERE relacion_id = ? ORDER BY fecha DESC",
   );
+  // warmth_updated is displayed in briefings. Use Mexico City timezone so
+  // "updated at 4:00 AM" matches the cron description, not UTC 10:00 AM.
   const updateWarmth = db.prepare(
-    "UPDATE relacion_ejecutiva SET warmth_score = ?, warmth_updated = datetime('now') WHERE id = ?",
+    "UPDATE relacion_ejecutiva SET warmth_score = ?, warmth_updated = datetime('now','-6 hours') WHERE id = ?",
   );
 
   let updated = 0;

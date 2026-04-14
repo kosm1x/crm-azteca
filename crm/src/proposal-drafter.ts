@@ -365,13 +365,15 @@ export function draftProposalFromInsight(
     : `${cuenta.nombre} — ${insight.titulo}`;
 
   const propId = genId();
-  const now = new Date().toISOString();
 
+  // fecha_creacion / fecha_ultima_actividad stored in Mexico City time via
+  // SQL (matches schema default pattern elsewhere but with MX offset).
+  // Avoids the UTC-server-evening-flips-day bug for user-facing timestamps.
   db.prepare(
     `INSERT INTO propuesta (id, cuenta_id, ae_id, titulo, valor_estimado, medios, tipo_oportunidad,
       gancho_temporal, fecha_vuelo_inicio, fecha_vuelo_fin, etapa, fecha_creacion, fecha_ultima_actividad,
       agente_razonamiento, confianza, insight_origen_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador_agente', ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador_agente', datetime('now','-6 hours'), datetime('now','-6 hours'), ?, ?, ?)`,
   ).run(
     propId,
     insight.cuenta_id,
@@ -383,16 +385,14 @@ export function draftProposalFromInsight(
     eventData.gancho,
     eventData.fechaInicio,
     eventData.fechaFin,
-    now,
-    now,
     razonamiento,
     insight.confianza,
     insightId,
   );
 
   db.prepare(
-    "UPDATE insight_comercial SET estado = 'convertido', propuesta_generada_id = ?, fecha_accion = ? WHERE id = ?",
-  ).run(propId, now, insightId);
+    "UPDATE insight_comercial SET estado = 'convertido', propuesta_generada_id = ?, fecha_accion = datetime('now','-6 hours') WHERE id = ?",
+  ).run(propId, insightId);
 
   return {
     propuesta_id: propId,

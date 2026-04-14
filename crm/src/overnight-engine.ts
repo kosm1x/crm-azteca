@@ -117,9 +117,11 @@ function analyzeCalendar(
     if (isDuplicate(existing, row.cuenta_id, titulo)) continue;
 
     const confianza = row.times_bought >= 2 ? 0.85 : 0.65;
+    // Expiration is user-facing — use Mexico City date so it doesn't expire
+    // 6 hours early relative to the sales team's workday.
     const expiration = row.evento_id
       ? row.fecha_inicio
-      : new Date(Date.now() + 56 * 86400000).toISOString();
+      : getMxDateStr(new Date(Date.now() + 56 * 86400000));
 
     insert.run(
       genId(),
@@ -171,6 +173,22 @@ function analyzeInventory(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
 
+  // Candidate accounts do not vary per event — fetch once outside the loop
+  // instead of N+1 per-event (prior implementation re-ran this query on every
+  // iteration, producing 10-50× redundant queries on busy nights).
+  const candidateAccounts = db
+    .prepare(
+      `SELECT DISTINCT c.id AS cuenta_id, c.nombre, c.ae_id
+       FROM cuenta c
+       JOIN propuesta p ON p.cuenta_id = c.id
+       WHERE p.etapa = 'completada'
+         AND p.tipo_oportunidad IN ('tentpole','evento_especial','estacional')
+         AND c.estado = 'activo'
+         AND c.ae_id IS NOT NULL
+       LIMIT 10`,
+    )
+    .all() as any[];
+
   for (const ev of events) {
     let soldPct = 0;
     if (ev.inventario_total && ev.inventario_vendido) {
@@ -193,19 +211,7 @@ function analyzeInventory(
     }
     if (soldPct >= 70) continue; // enough sold, skip
 
-    // Find active accounts that have historically bought this type of event
-    const accounts = db
-      .prepare(
-        `SELECT DISTINCT c.id AS cuenta_id, c.nombre, c.ae_id
-         FROM cuenta c
-         JOIN propuesta p ON p.cuenta_id = c.id
-         WHERE p.etapa = 'completada'
-           AND p.tipo_oportunidad IN ('tentpole','evento_especial','estacional')
-           AND c.estado = 'activo'
-           AND c.ae_id IS NOT NULL
-         LIMIT 10`,
-      )
-      .all() as any[];
+    const accounts = candidateAccounts;
 
     for (const acc of accounts) {
       const titulo = `Inventario ${ev.nombre} — ${acc.nombre}`;

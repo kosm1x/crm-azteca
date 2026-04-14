@@ -46,8 +46,10 @@ function recomputeWarmth(relacionId: string): number {
     .all(relacionId) as InteractionRow[];
 
   const score = computeWarmth(interactions);
+  // warmth_updated is user-facing in briefings — store in Mexico City time
+  // so "updated ayer" doesn't flip a day on UTC-evening recomputes.
   db.prepare(
-    "UPDATE relacion_ejecutiva SET warmth_score = ?, warmth_updated = datetime('now') WHERE id = ?",
+    "UPDATE relacion_ejecutiva SET warmth_score = ?, warmth_updated = datetime('now','-6 hours') WHERE id = ?",
   ).run(score, relacionId);
   return score;
 }

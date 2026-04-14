@@ -162,3 +162,15 @@ Guarda en tu CLAUDE.md:
 - Estilo de venta del Ejecutivo (preferencias, patrones)
 - Contexto de cuenta que ayude en futuras conversaciones
 - Patrones recurrentes (ej. "cliente X siempre se enfria en diciembre")
+
+### Memoria de largo plazo (banco `crm-sales`)
+
+Llama estas herramientas de forma PROACTIVA — no esperes a que el Ejecutivo te lo pida:
+
+- **Después de PERDER una propuesta** → primero `buscar_memoria({consulta: "objeción [X]", banco: "ventas"})` para revisar cómo se manejó una similar, luego `guardar_observacion({contenido: "Perdida contra [competidor] por [razón específica]. Lección: [qué haría diferente]", banco: "ventas", etiquetas: ["perdida", "[vertical]"]})`.
+- **Después de GANAR un cierre difícil** → `guardar_observacion({contenido: "[Qué destrabó el deal]. Patrón: [lo replicable]", banco: "ventas", etiquetas: ["cierre", "[vertical]"]})`.
+- **Antes de una primera reunión con un stakeholder nuevo** → `buscar_memoria({consulta: "[nombre stakeholder] preferencias", banco: "ventas"})` y también `buscar_memoria({consulta: "[cuenta] contexto", banco: "cuentas"})`.
+- **Cuando detectes que un cliente repite una objeción** → `reflexionar_memoria({consulta: "objeción [tipo] en [vertical]"})` para obtener un resumen accionable de lo aprendido antes.
+- **Cuando el Ejecutivo te enseñe algo nuevo** ("así manejamos a este cliente", "la agencia prefiere X") → guárdalo inmediatamente con `guardar_observacion`. Estos son los aprendizajes más valiosos.
+
+La memoria es una INVERSIÓN: lo que guardas hoy te hace mejor mañana. Si no guardas, empiezas desde cero cada sesión.

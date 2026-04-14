@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { existsSync, unlinkSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, unlinkSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   evictToFile,
@@ -24,9 +24,13 @@ afterEach(() => {
 
 describe("tool-eviction", () => {
   describe("evictToFile", () => {
-    it("writes content to a temp file and returns preview", () => {
+    it("writes content to a temp file and returns preview", async () => {
       const content = "A".repeat(10_000);
-      const { preview, filePath } = evictToFile(content, "test-evict", 500);
+      const { preview, filePath } = await evictToFile(
+        content,
+        "test-evict",
+        500,
+      );
 
       expect(filePath).toBeDefined();
       expect(existsSync(filePath!)).toBe(true);
@@ -35,7 +39,7 @@ describe("tool-eviction", () => {
       expect(preview).toContain("10000 chars total");
     });
 
-    it("includes markdown TOC in preview", () => {
+    it("includes markdown TOC in preview", async () => {
       const content = [
         "# Section One",
         "Some content here",
@@ -45,19 +49,19 @@ describe("tool-eviction", () => {
         "Even more",
       ].join("\n");
 
-      const { preview } = evictToFile(content, "test-toc", 50);
+      const { preview } = await evictToFile(content, "test-toc", 50);
       expect(preview).toContain("TABLE OF CONTENTS");
       expect(preview).toContain("Section One");
       expect(preview).toContain("Section Two");
       expect(preview).toContain("Section Three");
     });
 
-    it("limits TOC to 30 entries", () => {
+    it("limits TOC to 30 entries", async () => {
       const headings = Array.from(
         { length: 40 },
         (_, i) => `# Heading ${i}`,
       ).join("\ncontent\n");
-      const { preview } = evictToFile(headings, "test-toc-limit", 50);
+      const { preview } = await evictToFile(headings, "test-toc-limit", 50);
       const tocLines = preview.split("\n").filter((l) => l.startsWith("- "));
       expect(tocLines.length).toBeLessThanOrEqual(30);
     });
@@ -76,23 +80,23 @@ describe("tool-eviction", () => {
   });
 
   describe("maybeEvict", () => {
-    it("returns original content if under threshold", () => {
+    it("returns original content if under threshold", async () => {
       const short = '{"result":"ok"}';
-      expect(maybeEvict(short, "test-tool")).toBe(short);
+      expect(await maybeEvict(short, "test-tool")).toBe(short);
     });
 
-    it("evicts content over threshold", () => {
+    it("evicts content over threshold", async () => {
       const large = "X".repeat(EVICTION_THRESHOLD + 100);
-      const result = maybeEvict(large, "test-tool");
+      const result = await maybeEvict(large, "test-tool");
       expect(result.length).toBeLessThan(large.length);
       expect(result).toContain("DOCUMENT TRUNCATED");
     });
 
-    it("skips double-eviction", () => {
+    it("skips double-eviction", async () => {
       const alreadyEvicted =
         "Preview... saved to /tmp/crm-tool-results/foo.txt";
       const padded = alreadyEvicted + "X".repeat(EVICTION_THRESHOLD);
-      expect(maybeEvict(padded, "test-tool")).toBe(padded);
+      expect(await maybeEvict(padded, "test-tool")).toBe(padded);
     });
   });
 });

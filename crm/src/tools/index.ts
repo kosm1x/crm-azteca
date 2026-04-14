@@ -5,7 +5,7 @@
  * Provides role-based filtering and execution routing.
  */
 
-import type { ToolDefinition, ToolCall } from "../inference-adapter.js";
+import type { ToolDefinition } from "../inference-adapter.js";
 import { getPersonById, getTeamIds, getFullTeamIds } from "../hierarchy.js";
 import {
   registrar_actividad,
@@ -104,15 +104,42 @@ export interface ToolContext {
   full_team_ids: string[]; // all descendant IDs
 }
 
+// Cache ToolContext by persona id. The hierarchy rarely changes (new hires /
+// role changes), so recomputing `getTeamIds` + `getFullTeamIds` on every
+// tool call build is pure waste. `invalidateToolContextCache()` is called
+// from ipc-handlers on any `persona` table mutation.
+interface CachedContext {
+  ctx: ToolContext;
+  builtAt: number;
+}
+const TOOL_CONTEXT_TTL_MS = 10 * 60 * 1000; // 10 min soft TTL as a safety net
+const toolContextCache = new Map<string, CachedContext>();
+
 export function buildToolContext(personaId: string): ToolContext | null {
+  const cached = toolContextCache.get(personaId);
+  if (cached && Date.now() - cached.builtAt < TOOL_CONTEXT_TTL_MS) {
+    return cached.ctx;
+  }
   const persona = getPersonById(personaId);
   if (!persona) return null;
-  return {
+  const ctx: ToolContext = {
     persona_id: persona.id,
     rol: persona.rol,
     team_ids: getTeamIds(persona.id),
     full_team_ids: getFullTeamIds(persona.id),
   };
+  toolContextCache.set(personaId, { ctx, builtAt: Date.now() });
+  return ctx;
+}
+
+/** Invalidate the ToolContext cache. Call on any mutation to persona or
+ *  hierarchy (e.g., after registering a new team member or role change). */
+export function invalidateToolContextCache(personaId?: string): void {
+  if (personaId) {
+    toolContextCache.delete(personaId);
+  } else {
+    toolContextCache.clear();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -797,17 +824,32 @@ const TOOL_BUSCAR_DOCUMENTOS: ToolDefinition = {
   function: {
     name: "buscar_documentos",
     description:
-      "Busca en documentos sincronizados (Drive, email) usando busqueda semantica.",
+      "Busqueda HÍBRIDA (semántica + keyword) sobre el CORPUS INTERNO de la empresa: " +
+      "propuestas pasadas, briefs de cuentas, presentaciones del equipo, correos " +
+      "sincronizados, y documentos de Drive. Usa embeddings (sqlite-vec) + FTS5 " +
+      "(unicode61, sin acentos) fusionados con Reciprocal Rank Fusion.\n\n" +
+      "USAR PRIMERO (antes de buscar_web) cuando:\n" +
+      "- El Ejecutivo pregunta algo que podría estar en propuestas / briefs / correos previos\n" +
+      "- '¿qué propusimos a X el año pasado?', 'último brief de Coca-Cola', 'borradores sobre F1'\n" +
+      "- Necesitas contexto histórico interno para armar una propuesta nueva\n\n" +
+      "NO USAR PARA:\n" +
+      "- Datos estructurados del CRM (pipeline, cuotas, actividades — usa consultar_* tools)\n" +
+      "- Información externa que no existe dentro de la empresa (para eso: buscar_web)\n\n" +
+      "Si los resultados parecen irrelevantes después de 2 intentos con consultas diferentes, " +
+      "entonces sí prueba buscar_web.",
     parameters: {
       type: "object",
       properties: {
         consulta: {
           type: "string",
-          description: "Texto de busqueda semantica",
+          description:
+            "Texto de búsqueda. El tokenizador es unicode61 con remove_diacritics, " +
+            "así que 'Coca-Cola' y 'coca cola' son equivalentes. Los valores enum " +
+            "del schema (tv_abierta, ctv, radio, digital) se guardan SIN espacios.",
         },
         limite: {
           type: "number",
-          description: "Numero maximo de resultados (default 5)",
+          description: "Número máximo de resultados (default 5, max 20)",
         },
         tipo_doc: {
           type: "string",
@@ -825,14 +867,26 @@ const TOOL_BUSCAR_WEB: ToolDefinition = {
   function: {
     name: "buscar_web",
     description:
-      "Busca informacion en internet en tiempo real (noticias, datos de mercado, empresas, tendencias).",
+      "Búsqueda PÚBLICA en internet (Brave). Solo para información que NO existe " +
+      "dentro del CRM ni en el corpus interno.\n\n" +
+      "USAR PARA:\n" +
+      "- Noticias recientes sobre una marca/cliente\n" +
+      "- Datos de mercado, tendencias macro, análisis de industria\n" +
+      "- Investigar un prospecto que aún no está en el CRM\n" +
+      "- Competidores: qué están haciendo, movimientos recientes\n\n" +
+      "NO USAR PARA:\n" +
+      "- Propuestas, briefs, correos, documentos internos → buscar_documentos PRIMERO\n" +
+      "- Datos estructurados del equipo (pipeline, cuotas, actividades) → consultar_* tools\n" +
+      "- Preguntas sobre cuentas/contactos del CRM → consultar_cuentas / consultar_pipeline\n\n" +
+      "Los resultados vienen de fuentes externas no verificadas — siempre contextualiza " +
+      "con datos internos si es posible.",
     parameters: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Texto de busqueda" },
+        query: { type: "string", description: "Texto de búsqueda" },
         limite: {
           type: "number",
-          description: "Maximo resultados (default 5, max 10)",
+          description: "Máximo resultados (default 5, max 10)",
         },
       },
       required: ["query"],

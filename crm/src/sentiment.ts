@@ -15,6 +15,12 @@ import { logger as parentLogger } from "./logger.js";
 
 const logger = parentLogger.child({ component: "sentiment" });
 
+// Consecutive-failure counter. Elevates log severity after N failures so
+// silent classifier breakage (LLM down, schema drift, rate limit) surfaces
+// instead of silently degrading every activity to "neutral".
+let consecutiveFailures = 0;
+const FAILURE_ALERT_THRESHOLD = 5;
+
 const SENTIMENT_SYSTEM_PROMPT = `Clasifica el sentimiento de esta actividad comercial de ventas de publicidad en medios.
 Responde UNICAMENTE con JSON valido, sin texto adicional: {"label": "X", "score": N}
 
@@ -43,7 +49,8 @@ export async function classifySentiment(
     // Extract JSON from response (handle markdown fences or extra text)
     const jsonMatch = raw.match(/\{[^}]+\}/);
     if (!jsonMatch) {
-      logger.warn({ raw }, "Sentiment: no JSON found in response");
+      consecutiveFailures++;
+      logger.warn({ raw, consecutiveFailures }, "Sentiment: no JSON found");
       return { label: "neutral", score: 0 };
     }
 
@@ -55,12 +62,22 @@ export async function classifySentiment(
         ? Math.max(0, Math.min(1, parsed.score))
         : 0.5;
 
+    consecutiveFailures = 0;
     return { label, score };
   } catch (err) {
-    logger.warn(
-      { err },
-      "Sentiment classification failed, defaulting to neutral",
-    );
+    consecutiveFailures++;
+    if (consecutiveFailures >= FAILURE_ALERT_THRESHOLD) {
+      logger.error(
+        { err, consecutiveFailures },
+        "Sentiment classifier appears down — persistent failures. " +
+          "Activities are being tagged as 'neutral'. Check inference provider.",
+      );
+    } else {
+      logger.warn(
+        { err, consecutiveFailures },
+        "Sentiment classification failed, defaulting to neutral",
+      );
+    }
     return { label: "neutral", score: 0 };
   }
 }

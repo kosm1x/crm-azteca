@@ -205,16 +205,54 @@ export function analizar_tendencias(
 // Trend sub-queries
 // ---------------------------------------------------------------------------
 
+/**
+ * Check whether `targetId` is accessible to the caller given their role.
+ * VP sees everyone. Directors see their subtree (`full_team_ids` + self).
+ * Managers see direct reports (`team_ids` + self). AEs see only themselves.
+ *
+ * Returns true if the caller may query targetId. Prevents a manager from
+ * passing a sibling's or peer's name via `persona_nombre` and bypassing
+ * the role-scoped team filter.
+ */
+function isInScope(ctx: ToolContext, targetId: string): boolean {
+  if (ctx.rol === "vp") return true;
+  if (targetId === ctx.persona_id) return true;
+  if (ctx.rol === "director") {
+    return ctx.full_team_ids.includes(targetId);
+  }
+  if (ctx.rol === "gerente") {
+    return ctx.team_ids.includes(targetId);
+  }
+  return false; // AE: only self
+}
+
+/**
+ * Resolve `persona_nombre` → `persona_id`, enforcing scope. Returns null if
+ * the name is unresolvable OR if the resolved id is outside the caller's
+ * scope. Callers should then fall through to the default role-scoped filter
+ * (so the query still returns the caller's own team, not the stranger).
+ */
+function resolveNameInScope(
+  ctx: ToolContext,
+  personaNombre: string,
+): string | null {
+  const pid = personaIdFromName(personaNombre);
+  if (!pid) return null;
+  if (!isInScope(ctx, pid)) return null;
+  return pid;
+}
+
 function cuotaScopeFilter(
   ctx: ToolContext,
   personaNombre?: string,
 ): { where: string; params: unknown[] } {
-  // If a specific person is requested (for managers+)
+  // If a specific person is requested (for managers+), resolve + enforce scope
   if (personaNombre && ctx.rol !== "ae") {
-    const pid = personaIdFromName(personaNombre);
+    const pid = resolveNameInScope(ctx, personaNombre);
     if (pid) {
       return { where: "AND q.persona_id = ?", params: [pid] };
     }
+    // Unresolvable or out-of-scope — fall through to the caller's own team.
   }
 
   if (ctx.rol === "vp") return { where: "", params: [] };
@@ -240,10 +278,11 @@ function activityScopeFilter(
   personaNombre?: string,
 ): { where: string; params: unknown[] } {
   if (personaNombre && ctx.rol !== "ae") {
-    const pid = personaIdFromName(personaNombre);
+    const pid = resolveNameInScope(ctx, personaNombre);
     if (pid) {
       return { where: "AND a.ae_id = ?", params: [pid] };
     }
+    // Unresolvable or out-of-scope — fall through to the caller's own team.
   }
 
   return scopeFilter(ctx, "a.ae_id");
@@ -254,10 +293,11 @@ function proposalScopeFilter(
   personaNombre?: string,
 ): { where: string; params: unknown[] } {
   if (personaNombre && ctx.rol !== "ae") {
-    const pid = personaIdFromName(personaNombre);
+    const pid = resolveNameInScope(ctx, personaNombre);
     if (pid) {
       return { where: "AND p.ae_id = ?", params: [pid] };
     }
+    // Unresolvable or out-of-scope — fall through to the caller's own team.
   }
 
   return scopeFilter(ctx, "p.ae_id");

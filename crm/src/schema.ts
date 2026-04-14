@@ -184,6 +184,9 @@ export function createCrmSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_propuesta_ae ON propuesta(ae_id);
     CREATE INDEX IF NOT EXISTS idx_propuesta_cuenta ON propuesta(cuenta_id);
     CREATE INDEX IF NOT EXISTS idx_propuesta_etapa ON propuesta(etapa);
+    -- Composite: most pipeline queries filter by etapa AND sort by recency.
+    CREATE INDEX IF NOT EXISTS idx_propuesta_etapa_fecha
+      ON propuesta(etapa, fecha_ultima_actividad DESC);
 
     -- 7. ACTIVIDAD
     CREATE TABLE IF NOT EXISTS actividad (

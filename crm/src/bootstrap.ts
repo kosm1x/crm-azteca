@@ -10,6 +10,7 @@ import { logger } from "./logger.js";
 import { createCrmSchema, CRM_TABLES } from "./schema.js";
 import { initShortLinks } from "./dashboard/auth.js";
 import { initMemoryService } from "./memory/index.js";
+import { startEvictionCleanup } from "./tool-eviction.js";
 
 export function bootstrapCrm(): void {
   const db = getDatabase();
@@ -29,6 +30,12 @@ export function bootstrapCrm(): void {
         "Memory service init failed — using SQLite fallback",
       );
     });
+
+    // Background cleanup of oversized-tool-result temp files. Previously
+    // this ran probabilistically inside the hot path on every eviction,
+    // which added unpredictable latency. Now it runs every 10 minutes off
+    // the event loop.
+    startEvictionCleanup();
   } catch (err) {
     logger.error({ err }, "CRM bootstrap failed");
     throw err;
