@@ -165,7 +165,7 @@ Tests live in:
 ## Service Operations
 
 - Always kill ALL `tsx.*engine` processes before starting fresh.
-- Always rebuild container with `--no-cache` when source files change.
+- Always rebuild container with `npm run build:container` when source files under `crm/src/` change. The systemd service + dashboard stay green even when the agent image is stale or missing — `/health` does NOT exercise the container path. See LEARNINGS-2026-04-21 §1.
 - After persona/config change, restart engine AND clear session history.
 - `crm-ctl` at `/usr/local/bin/crm-ctl` is the canonical way to manage the service.
 - Check systemd status BEFORE using pgrep (systemd-spawned processes also match).
