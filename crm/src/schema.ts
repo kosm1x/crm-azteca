@@ -187,6 +187,11 @@ export function createCrmSchema(db: Database.Database): void {
     -- Composite: most pipeline queries filter by etapa AND sort by recency.
     CREATE INDEX IF NOT EXISTS idx_propuesta_etapa_fecha
       ON propuesta(etapa, fecha_ultima_actividad DESC);
+    -- Composite: getPipeline / briefing path-to-close filter by ae_id + etapa
+    -- and sort by valor_estimado DESC. Without this the planner falls back to
+    -- idx_propuesta_ae and re-sorts in memory.
+    CREATE INDEX IF NOT EXISTS idx_propuesta_ae_etapa_valor
+      ON propuesta(ae_id, etapa, valor_estimado DESC);
 
     -- 7. ACTIVIDAD
     CREATE TABLE IF NOT EXISTS actividad (
@@ -208,6 +213,10 @@ export function createCrmSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_actividad_propuesta ON actividad(propuesta_id);
     CREATE INDEX IF NOT EXISTS idx_actividad_fecha ON actividad(fecha);
     CREATE INDEX IF NOT EXISTS idx_actividad_sentimiento ON actividad(sentimiento);
+    -- Composite: VP glance sentiment trend filters by sentimiento and ranges
+    -- by fecha; a single-column sentimiento index forces a fecha re-scan.
+    CREATE INDEX IF NOT EXISTS idx_actividad_sentimiento_fecha
+      ON actividad(sentimiento, fecha);
   `);
 
   // -- Phase 8: Additive migrations on actividad --

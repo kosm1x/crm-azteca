@@ -23,6 +23,52 @@ const DASHBOARD_ROW_LIMIT = 500;
 
 type Trend = "mejorando" | "estable" | "deteriorando";
 
+// Maps alerta_tipo → which table the entidad_id refers to. Used by the bulk
+// resolver below to avoid N+1 lookups when rendering alert lists.
+const PERSONA_TIPOS = new Set([
+  "inactividad_ae",
+  "coaching_alert",
+  "cuota_alert",
+]);
+const CUENTA_TIPOS = new Set(["descarga_gap"]);
+const PROPUESTA_TIPOS = new Set([
+  "propuesta_estancada",
+  "mega_deal_movimiento",
+]);
+
+/**
+ * Bulk-resolve alert entity IDs to display names in 3 queries instead of N×4.
+ * Rows must have `alerta_tipo` and `entidad_id`. Unknown types map to the raw id.
+ */
+function resolveAlertEntities(
+  db: ReturnType<typeof getDatabase>,
+  rows: Array<{ alerta_tipo: string; entidad_id: string }>,
+): Map<string, string> {
+  const personaIds = new Set<string>();
+  const cuentaIds = new Set<string>();
+  const propuestaIds = new Set<string>();
+  for (const r of rows) {
+    if (PERSONA_TIPOS.has(r.alerta_tipo)) personaIds.add(r.entidad_id);
+    else if (CUENTA_TIPOS.has(r.alerta_tipo)) cuentaIds.add(r.entidad_id);
+    else if (PROPUESTA_TIPOS.has(r.alerta_tipo)) propuestaIds.add(r.entidad_id);
+  }
+  const names = new Map<string, string>();
+  const bulkLoad = (ids: Set<string>, table: string, nameCol: string): void => {
+    if (ids.size === 0) return;
+    const placeholders = Array.from(ids, () => "?").join(",");
+    const lookups = db
+      .prepare(
+        `SELECT id, ${nameCol} AS name FROM ${table} WHERE id IN (${placeholders})`,
+      )
+      .all(...Array.from(ids)) as Array<{ id: string; name: string }>;
+    for (const row of lookups) names.set(row.id, row.name);
+  };
+  bulkLoad(personaIds, "persona", "nombre");
+  bulkLoad(cuentaIds, "cuenta", "nombre");
+  bulkLoad(propuestaIds, "propuesta", "titulo");
+  return names;
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/v1/pipeline
 // ---------------------------------------------------------------------------
@@ -355,36 +401,7 @@ export function getAlertas(
     )
     .all(...params) as any[];
 
-  // Resolve entity IDs to human-readable names
-  const resolveEntity = (tipo: string, entityId: string): string => {
-    try {
-      if (tipo === "inactividad_ae") {
-        const p = db
-          .prepare("SELECT nombre FROM persona WHERE id = ?")
-          .get(entityId) as any;
-        return p?.nombre || entityId;
-      }
-      if (tipo === "descarga_gap") {
-        const c = db
-          .prepare("SELECT nombre FROM cuenta WHERE id = ?")
-          .get(entityId) as any;
-        return c?.nombre || entityId;
-      }
-      if (tipo === "propuesta_estancada" || tipo === "mega_deal_movimiento") {
-        const pr = db
-          .prepare("SELECT titulo FROM propuesta WHERE id = ?")
-          .get(entityId) as any;
-        return pr?.titulo || entityId;
-      }
-      if (tipo === "coaching_alert" || tipo === "cuota_alert") {
-        const p = db
-          .prepare("SELECT nombre FROM persona WHERE id = ?")
-          .get(entityId) as any;
-        return p?.nombre || entityId;
-      }
-    } catch {}
-    return entityId;
-  };
+  const names = resolveAlertEntities(db, rows);
 
   const TIPO_LABELS: Record<string, string> = {
     descarga_gap: "Gap descarga",
@@ -400,7 +417,7 @@ export function getAlertas(
     total: rows.length,
     alertas: rows.map((r) => ({
       tipo: TIPO_LABELS[r.alerta_tipo] || r.alerta_tipo,
-      entidad: resolveEntity(r.alerta_tipo, r.entidad_id),
+      entidad: names.get(r.entidad_id) || r.entidad_id,
       fecha: r.fecha_envio,
     })),
   };
@@ -645,37 +662,11 @@ export function getVpGlance(
     evento_countdown: "Evento",
   };
 
-  const resolveEntityGlance = (tipo: string, entityId: string): string => {
-    try {
-      if (
-        tipo === "inactividad_ae" ||
-        tipo === "coaching_alert" ||
-        tipo === "cuota_alert"
-      ) {
-        const p = db
-          .prepare("SELECT nombre FROM persona WHERE id = ?")
-          .get(entityId) as any;
-        return p?.nombre || entityId;
-      }
-      if (tipo === "descarga_gap") {
-        const c = db
-          .prepare("SELECT nombre FROM cuenta WHERE id = ?")
-          .get(entityId) as any;
-        return c?.nombre || entityId;
-      }
-      if (tipo === "propuesta_estancada" || tipo === "mega_deal_movimiento") {
-        const pr = db
-          .prepare("SELECT titulo FROM propuesta WHERE id = ?")
-          .get(entityId) as any;
-        return pr?.titulo || entityId;
-      }
-    } catch {}
-    return entityId;
-  };
+  const glanceNames = resolveAlertEntities(db, alertRows);
 
   const activeAlerts = alertRows.map((r: any) => ({
     tipo: TIPO_LABELS_GLANCE[r.alerta_tipo] || r.alerta_tipo,
-    entidad: resolveEntityGlance(r.alerta_tipo, r.entidad_id),
+    entidad: glanceNames.get(r.entidad_id) || r.entidad_id,
     fecha: r.fecha_envio,
   }));
 
