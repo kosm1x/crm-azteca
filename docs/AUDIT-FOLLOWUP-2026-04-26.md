@@ -240,24 +240,34 @@ out fatter than spec — also rejects integer/hex IPs, IPv6 loopback +
 link-local + unique-local + IPv4-mapped IPv6. Bypass-pinning sweep (11
 extra tests) lives in `bootstrap.test.ts`.
 
-**Remaining queue:**
+**Done in part 4** (NODE_ENV + B3 ops + cleanup commit):
 
-1. **NODE_ENV wiring** — `Environment=NODE_ENV=production` in the
-   systemd unit. Without this, B4/A5 are no-ops in prod. ~5 min + restart.
-2. **B3** PG `~/.pgpass` migration for backup scripts (split from §2
-   batch per user — touches systemd timer, separate run). ~1 h.
-3. **A1 + A2** docstring fixes for `getCurrentWeek` + `dateCutoff`. ~10 min.
-4. **A3** add overnight `errors[]` test. ~15 min.
-5. **S1** add doom-loop N=2 escalation test. ~15 min.
+- ~~NODE_ENV=production~~ added to `/etc/systemd/system/agentic-crm.service`,
+  daemon-reloaded, restarted clean. B4/A5 guards now active in prod.
+- ~~B3 PG ~/.pgpass migration~~ — `/root/.pgpass` (mode 600) created;
+  `crm-backup`, `crm-restore`, `crm-mirror`, `crm-backup-list` no longer
+  set `PGPASSWORD`. All four manually verified end-to-end (backup-list,
+  backup, restore, mirror — pgloader run incl.). `*.bak` copies left in
+  `/usr/local/bin/` for 1-week rollback insurance.
+- ~~A1 + A2~~ — `getCurrentWeek` docstring corrected (US Sunday, NOT ISO);
+  `dateCutoff` JSDoc warns callers must use `>=` semantics.
+- ~~A3~~ — overnight engine `errors[]` regression test (`runOvernightAnalysis`
+  → drop a needed table → assert `errors.length > 0` → IPC predicate
+  `length === 0` returns false).
+- ~~S1~~ — doom-loop integration test pins detection on call N=2, not N=3
+  (defends against threshold being silently raised back to 3).
 
-Total ~2 h to fully close the audit + audit-of-audit backlog.
+**Open items only:**
 
-After that, only `BUDGET_ENFORCE` default flip remains (explicitly
-flagged "discuss before flipping" in audit §7, not in this list).
+- `BUDGET_ENFORCE` default flip — explicitly flagged "discuss before
+  flipping" in audit §7. Not started.
+- Container resource limits — touches engine hook point beyond
+  documented scope. Not started.
 
 ## Cross-cuts to remember
 
-- All §1-§6 commits + the §2 batch are now pushed to `origin/main`.
+- All audit batches (§1, §3, §4, §5, §6, §2) plus parts 3 + 4 are now
+  pushed to `origin/main`.
 - After any §2 fix, write a `LEARNINGS-2026-MM-DD.md` entry on the
   underlying anti-pattern (interpolated table names, query-string
   escaping, env-var credentials) so the next audit doesn't surface

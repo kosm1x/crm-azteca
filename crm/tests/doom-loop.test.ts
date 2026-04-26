@@ -236,5 +236,36 @@ describe("doom-loop detection", () => {
       }
       expect(signal).not.toBeNull();
     });
+
+    it("S1: fires on call N=2, not N=3 (post-2026-04-26 threshold lowering)", () => {
+      // Batch 5 (commit 6afe88d) lowered CHANTING_THRESHOLD and
+      // FINGERPRINT_THRESHOLD from 3 to 2. The detector counts the
+      // current call, so threshold=2 means "fire on the second
+      // identical occurrence." Pin this so a future revert to 3
+      // doesn't go unnoticed — three failed sales calls is a worse
+      // place to escalate from than two.
+      const state = createDoomLoopState();
+      const round = {
+        toolCalls: [
+          {
+            function: {
+              name: "consultar_pipeline",
+              arguments: '{"ae_id":"1"}',
+            },
+          },
+        ],
+        toolResults: [{ content: '{"propuestas":[]}' }],
+        llmText: "",
+      };
+
+      // Call 1 — populates state, must not fire yet.
+      const first = updateDoomLoop(state, round);
+      expect(first).toBeNull();
+
+      // Call 2 — must fire. If a future change pushes the threshold
+      // back up to 3, this assertion fails loudly.
+      const second = updateDoomLoop(state, round);
+      expect(second).not.toBeNull();
+    });
   });
 });

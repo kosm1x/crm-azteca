@@ -3,7 +3,7 @@
  *
  * scopeFilter — role-based SQL WHERE clause builder (canonical, single copy)
  * findCuentaId — fuzzy account lookup by name
- * getCurrentWeek — ISO week number
+ * getCurrentWeek — US-style Sunday-anchored week number (NOT ISO week)
  * personaIdFromName — fuzzy persona lookup by name
  */
 
@@ -78,12 +78,22 @@ export function personaIdFromName(nombre: string): string | null {
   return row?.id ?? null;
 }
 
+/**
+ * Current week number using US convention: weeks start Sunday, week 1
+ * contains Jan 1, no Thursday rule. NOT ISO 8601 week numbering — these
+ * differ by 1 in early January and rarely later in the year.
+ *
+ * All historical CRM data (semana columns in propuesta, descarga, etc.)
+ * is keyed by this US-Sunday formula. Changing it to ISO would break
+ * year-over-year comparisons. If you need ISO weeks for an external
+ * integration, write a separate helper — do not change this one.
+ *
+ * Anchored to MX date (not UTC) so the result doesn't slide between
+ * 18:00–23:59 UTC when MX is still on the previous day.
+ */
 export function getCurrentWeek(): number {
   const mxDate = getMxDateStr();
   const [y, m, d] = mxDate.split("-").map(Number);
-  // UTC math so the process timezone doesn't slide the result. The MX
-  // date string fixes the year/month/day; .getUTCDay() reads it back without
-  // a local-tz round-trip.
   const now = Date.UTC(y, m - 1, d);
   const start = Date.UTC(y, 0, 1);
   const startDay = new Date(start).getUTCDay();
@@ -133,6 +143,12 @@ export function getMxDateTimeStr(date?: Date): string {
  * `>=` ("rows from N MX-days ago onward"). The previous UTC ISO format
  * (`...T...Z`) sorted after the SQLite space-separated format and silently
  * dropped same-day rows.
+ *
+ * **MUST be used with `>=` semantics, not `<`.** `dateCutoff(7)` means
+ * "the start of the MX day 7 days ago" — a row from 7 days 23 hours ago
+ * is INCLUDED, not excluded. Inverting to `< dateCutoff(7)` would silently
+ * drop rows from the cutoff day itself. If you need exclusive-window
+ * semantics, write a separate helper.
  */
 export function dateCutoff(daysAgo: number): string {
   const cutoff = new Date(Date.now() - daysAgo * 86400000);

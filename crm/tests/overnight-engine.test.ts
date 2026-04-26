@@ -294,6 +294,28 @@ describe("runOvernightAnalysis", () => {
       .get() as any;
     expect(row.estado).toBe("expirado");
   });
+
+  it("A3: populates errors[] when an analyzer crashes (IPC contract)", () => {
+    // Empty-DB baseline: no analyzer errors expected.
+    const clean = runOvernightAnalysis();
+    expect(clean.errors).toEqual([]);
+    expect(clean.errors.length === 0).toBe(true); // mirrors IPC predicate
+
+    // Force one analyzer to throw by removing a table it depends on. Each
+    // analyzer is wrapped in its own `db.transaction()` so a single failure
+    // doesn't poison the others — the failed analyzer's name should land
+    // in result.errors and the IPC handler should return false.
+    testDb.exec("DROP TABLE crm_events");
+
+    const broken = runOvernightAnalysis();
+    expect(broken.errors.length).toBeGreaterThan(0);
+    // IPC handler at crm/src/ipc-handlers.ts:517 uses this exact predicate
+    // to decide whether engine should retry rather than wait +24h.
+    expect(broken.errors.length === 0).toBe(false);
+    // Other analyzers still produced results (we know calendar failed; the
+    // total reflects everything else).
+    expect(broken.lote).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------
