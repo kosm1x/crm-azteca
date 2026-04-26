@@ -89,12 +89,16 @@ export function detectContentChanting(
 
   for (let i = 0; i <= text.length - chunkSize; i += chunkSize) {
     const h = fnv1a(text.slice(i, i + chunkSize));
-    const count = (state.textHashes.get(h) ?? 0) + 1;
-    state.textHashes.set(h, count);
+    const prev = state.textHashes.get(h) ?? 0;
+    // Delete + re-set so existing keys move to insertion-order tail; the
+    // first key is then truly the least-recently-used.
+    if (prev > 0) state.textHashes.delete(h);
+    state.textHashes.set(h, prev + 1);
     if (state.textHashes.size > 500) {
       const first = state.textHashes.keys().next().value;
       if (first !== undefined) state.textHashes.delete(first);
     }
+    const count = prev + 1;
     if (count >= threshold) {
       return {
         layer: 0,
@@ -167,12 +171,16 @@ export function detectFingerprint(
   const resultSig = fingerprintResults(toolResults);
   const pairKey = `${callSig}:${resultSig}`;
 
-  const count = (state.callResultPairs.get(pairKey) ?? 0) + 1;
-  state.callResultPairs.set(pairKey, count);
+  const prev = state.callResultPairs.get(pairKey) ?? 0;
+  // Delete + re-set so existing keys move to insertion-order tail; the first
+  // key is then truly the least-recently-used.
+  if (prev > 0) state.callResultPairs.delete(pairKey);
+  state.callResultPairs.set(pairKey, prev + 1);
   if (state.callResultPairs.size > 200) {
     const first = state.callResultPairs.keys().next().value;
     if (first !== undefined) state.callResultPairs.delete(first);
   }
+  const count = prev + 1;
 
   if (count >= threshold) {
     return {

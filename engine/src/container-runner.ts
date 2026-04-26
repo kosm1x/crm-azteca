@@ -414,6 +414,10 @@ export async function runContainerAgent(
     let parseBuffer = '';
     let newSessionId: string | undefined;
     let outputChain = Promise.resolve();
+    // Cap parseBuffer at the same 10MB ceiling as stdout. A runaway container
+    // writing megabytes between markers would otherwise grow the buffer
+    // unboundedly via `+=` and OOM the host process.
+    const PARSE_BUFFER_CAP = CONTAINER_MAX_OUTPUT_SIZE;
 
     container.stdout.on('data', (data) => {
       const chunk = data.toString();
@@ -462,6 +466,33 @@ export async function runContainerAgent(
               { group: group.name, error: err },
               'Failed to parse streamed output chunk',
             );
+          }
+        }
+
+        // After draining whatever we could, enforce the cap.
+        if (parseBuffer.length > PARSE_BUFFER_CAP) {
+          const startIdx = parseBuffer.indexOf(OUTPUT_START_MARKER);
+          if (startIdx === -1) {
+            // No in-progress pair — safe to drop the whole accumulated noise.
+            logger.warn(
+              { group: group.name, dropped: parseBuffer.length },
+              'parseBuffer cap exceeded with no in-progress marker — dropping',
+            );
+            parseBuffer = '';
+          } else {
+            // In-progress START with no END within the cap — the payload is
+            // larger than we will ever accept. Kill the container instead of
+            // letting the buffer keep growing.
+            logger.error(
+              { group: group.name, bufferSize: parseBuffer.length },
+              'parseBuffer cap exceeded mid-marker — killing container',
+            );
+            parseBuffer = '';
+            try {
+              container.kill('SIGKILL');
+            } catch {
+              /* already exited */
+            }
           }
         }
       }

@@ -34,13 +34,23 @@ const logger = parentLogger.child({ component: "inference" });
 // Per-provider circuit breakers
 // ---------------------------------------------------------------------------
 
+const PROVIDER_BREAKER_CAP = 20;
 const providerBreakers = new Map<string, CircuitBreaker>();
 
 function getBreakerForProvider(name: string): CircuitBreaker {
   let breaker = providerBreakers.get(name);
-  if (!breaker) {
-    breaker = new CircuitBreaker({ name: `inference:${name}` });
+  if (breaker) {
+    // Touch: move to insertion-order tail so the LRU eviction below picks
+    // the actually-oldest provider, not whichever happened to be first.
+    providerBreakers.delete(name);
     providerBreakers.set(name, breaker);
+    return breaker;
+  }
+  breaker = new CircuitBreaker({ name: `inference:${name}` });
+  providerBreakers.set(name, breaker);
+  if (providerBreakers.size > PROVIDER_BREAKER_CAP) {
+    const lru = providerBreakers.keys().next().value;
+    if (lru !== undefined) providerBreakers.delete(lru);
   }
   return breaker;
 }
