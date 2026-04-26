@@ -7,8 +7,11 @@ import fs from 'fs';
 import path from 'path';
 
 import {
+  CONTAINER_CPUS,
   CONTAINER_IMAGE as CONTAINER_IMAGE_DEFAULT,
   CONTAINER_MAX_OUTPUT_SIZE,
+  CONTAINER_MEMORY,
+  CONTAINER_PIDS_LIMIT,
   CONTAINER_TIMEOUT,
   CREDENTIAL_PROXY_PORT,
   DATA_DIR,
@@ -294,8 +297,14 @@ function buildContainerArgs(
 ): string[] {
   const args: string[] = ['run', '-i', '--rm', '--name', containerName];
 
-  // Resource limits: prevent runaway agents from OOM-killing the host
-  args.push('--memory', '512m', '--cpus', '1');
+  // Resource limits: prevent runaway agents from OOM-killing the host.
+  // Configurable via CONTAINER_MEMORY/CPUS/PIDS_LIMIT env vars (config.ts).
+  // pids-limit defends against fork-bomb-shaped agent failures and is the
+  // cheapest part of this trio. Setting any to '0' disables that limit.
+  if (CONTAINER_MEMORY !== '0') args.push('--memory', CONTAINER_MEMORY);
+  if (CONTAINER_CPUS !== '0') args.push('--cpus', CONTAINER_CPUS);
+  if (CONTAINER_PIDS_LIMIT !== '0')
+    args.push('--pids-limit', CONTAINER_PIDS_LIMIT);
 
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);

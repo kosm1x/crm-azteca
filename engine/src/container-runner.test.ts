@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
 import { PassThrough } from 'stream';
 
@@ -16,6 +17,11 @@ vi.mock('./config.js', () => ({
   GROUPS_DIR: '/tmp/nanoclaw-test-groups',
   IDLE_TIMEOUT: 1800000, // 30min
   TIMEZONE: 'America/Los_Angeles',
+  // Resource limits (Phase 2a defaults). Match config.ts defaults so tests
+  // exercise the same threading the runtime sees.
+  CONTAINER_MEMORY: '512m',
+  CONTAINER_CPUS: '1',
+  CONTAINER_PIDS_LIMIT: '256',
 }));
 
 // Mock logger
@@ -206,5 +212,65 @@ describe('container-runner timeout behavior', () => {
     const result = await resultPromise;
     expect(result.status).toBe('success');
     expect(result.newSessionId).toBe('session-456');
+  });
+});
+
+/**
+ * Phase 2a — Resource-limit threading from config.ts → buildContainerArgs.
+ * Asserts the docker run argv carries --memory, --cpus, --pids-limit
+ * with the values from config (mocked above to match the runtime defaults).
+ *
+ * The '0' escape-hatch behavior (`if (X !== '0') args.push(...)`) is
+ * verified by inspection of container-runner.ts:298 — re-mocking config
+ * per-test would require resetModules + dynamic re-import, which is
+ * heavyweight for a four-line conditional. If that branch ever grows
+ * non-trivially, add a dedicated container-resource-limits.test.ts file
+ * with separate config mocks.
+ */
+describe('container-runner resource-limit threading (Phase 2a)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fakeProc = createFakeProcess();
+    vi.mocked(spawn).mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('passes --memory, --cpus, --pids-limit with configured values', async () => {
+    const resultPromise = runContainerAgent(
+      testGroup,
+      testInput,
+      () => {},
+      vi.fn(async () => {}),
+    );
+
+    // Resolve the promise so the test doesn't dangle.
+    emitOutputMarker(fakeProc, {
+      status: 'success',
+      result: 'ok',
+      newSessionId: 'session-rl',
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    fakeProc.emit('close', 0);
+    await vi.advanceTimersByTimeAsync(10);
+    await resultPromise;
+
+    // spawn was called with (binary, args, opts). Inspect args.
+    expect(vi.mocked(spawn)).toHaveBeenCalled();
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+
+    // The three flags must each appear, immediately followed by their value.
+    const expectations: Array<[string, string]> = [
+      ['--memory', '512m'],
+      ['--cpus', '1'],
+      ['--pids-limit', '256'],
+    ];
+    for (const [flag, value] of expectations) {
+      const idx = args.indexOf(flag);
+      expect(idx, `${flag} present in docker run args`).toBeGreaterThan(-1);
+      expect(args[idx + 1]).toBe(value);
+    }
   });
 });

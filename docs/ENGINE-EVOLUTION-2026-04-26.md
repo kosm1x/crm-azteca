@@ -100,25 +100,43 @@ affected. Tests stay at 1,166 by construction.
 
 ---
 
-## Phase 2 — Reliability tightening (queued, ~6–8 h, 2 sessions)
+## Phase 2 — Reliability tightening
 
 Concrete wins, each shippable independently. Run full test suite
 after each.
 
-| Item                                                                                                                                                                   | Effort | Value                                                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------- |
-| `CONTAINER_MEMORY` / `CONTAINER_CPUS` / `CONTAINER_PIDS_LIMIT` env vars in `engine/config.ts`, threaded through `buildContainerArgs`. Closes audit `--pids-limit` gap. | ~30 m  | Per-deploy tuning + closes audit security gap                       |
-| Container heartbeat + stuck-container reaper, ported from upstream's `host-sweep.ts` pattern but adapted to fit our `group-queue.ts` model.                            | ~3–4 h | Catches "container alive but silent" — doom-loop only catches loops |
-| Split `engine/index.ts` (620 LOC) into `engine/bootstrap.ts` (engine startup) + thin `engine/index.ts` (entry point), keeping CRM hooks in `crm/src/bootstrap.ts`.     | ~2 h   | Reduces max-file complexity; cleaner review surface                 |
-| Trim `engine/ipc.ts` to engine-only IPC. CRM handlers already live in `crm/src/ipc-handlers.ts`.                                                                       | ~1 h   | Same as above                                                       |
+| Item                                                                                                                                                                   | Status                                                                                     | Effort | Value                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------- |
+| `CONTAINER_MEMORY` / `CONTAINER_CPUS` / `CONTAINER_PIDS_LIMIT` env vars in `engine/config.ts`, threaded through `buildContainerArgs`. Closes audit `--pids-limit` gap. | **Shipped 2026-04-26** (Phase 2a)                                                          | ~1 h   | Per-deploy tuning + closes audit security gap                       |
+| Trim `engine/ipc.ts` to engine-only IPC. CRM handlers already live in `crm/src/ipc-handlers.ts`.                                                                       | **N/A** — verified already partitioned (only the default-case CRM delegation at line 546). | —      | Was a false-positive guess from Phase 1 inventory                   |
+| Split `engine/index.ts` (620 LOC) into `engine/bootstrap.ts` (engine startup) + thin `engine/index.ts` (entry point), keeping CRM hooks in `crm/src/bootstrap.ts`.     | Queued (Phase 2b)                                                                          | ~2 h   | Reduces max-file complexity; cleaner review surface                 |
+| Container heartbeat + stuck-container reaper, ported from upstream's `host-sweep.ts` pattern but adapted to fit our `group-queue.ts` model.                            | Queued (Phase 2c)                                                                          | ~3–4 h | Catches "container alive but silent" — doom-loop only catches loops |
 
-Cross-reference: the resource-limits work was also filed upstream as
-[qwibitai/nanoclaw#2029](https://github.com/qwibitai/nanoclaw/issues/2029).
-We can ship our local version regardless of upstream response — the
-issue is just signal that the gap exists in the wild.
+### Phase 2a — what shipped
 
-**Risk:** medium per item, low when batched. Each item has tests
-covering it; run the full suite after each.
+- Three env vars in `engine/src/config.ts` (`CONTAINER_MEMORY`,
+  `CONTAINER_CPUS`, `CONTAINER_PIDS_LIMIT`) with defaults
+  `'512m'`/`'1'`/`'256'` matching the previously hardcoded values
+  plus the new `--pids-limit` flag.
+- `trimEnv()` helper to fall back to defaults for empty/whitespace
+  env values (audit-caught: `process.env.X = ''` would otherwise
+  push `--memory ''` and break docker spawn).
+- Setting any var to `'0'` skips the corresponding flag entirely
+  (Docker convention for `--memory` and `--pids-limit`; uniform
+  behavior for `--cpus` since `--cpus 0` is rejected by Docker).
+- 7 new tests: 6 in `engine/src/config.test.ts` covering the env
+  matrix (unset, empty, whitespace, `'0'`, custom, trimmed-custom)
+  - 1 in `engine/src/container-runner.test.ts` asserting the three
+    flags appear in `spawn` args with the configured values.
+- Cross-ref: filed upstream as
+  [qwibitai/nanoclaw#2029](https://github.com/qwibitai/nanoclaw/issues/2029).
+  Our local version shipped regardless of upstream response.
+- Deferred from audit (low value):
+  - Strict regex validation of values (audit-suggested `/^\d+(\.\d+)?[bkmg]?$/i` for memory etc.) — docker's own error on first spawn is sufficient signal; adding parser duplicates docker's validation.
+  - Test that `'0'` escape hatch omits the flag at the spawn-args layer — covered by inspection at `container-runner.ts:298` (six lines of obvious conditionals); re-mocking config per-test would test the mock plumbing more than production code.
+
+**Risk for remaining items (2b, 2c):** medium per item, low when
+batched. Each has tests covering it; run the full suite after each.
 
 ---
 
