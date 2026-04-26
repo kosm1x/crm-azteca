@@ -220,30 +220,50 @@ escalate to Option C (full heartbeat reaper) with concrete data.
 
 ---
 
-## Phase 3 — CRM-driven evolution (open-ended)
+## Phase 3 — CRM-driven evolution (closed 2026-04-26 with no items pulled)
 
-Driven by features that hit walls. Don't pre-build. Likely candidates
-based on current pain points:
+**Status:** Deferred indefinitely — no real CRM pain points justify
+pre-building. Phase 3 is a doctrine ("we'll fix it when something
+hits a wall"), not a backlog. The four candidates below stay on the
+shelf as "what we'd build if we needed to," not as queued work.
+
+When picking up engine work in a future session, **do not "ship Phase
+3"** as a batch — that would be exactly the speculative engineering
+this section was written against. Re-open Phase 3 only when a
+specific CRM feature hits an engine wall, or when production logs
+surface a concrete problem one of these candidates would solve.
+
+**Candidates (none currently triggered):**
 
 - **Per-group resource quotas** — a noisy group container can't starve
-  siblings (extension of Phase 2 limits)
-- **Per-container observability** — container-level metrics (CPU,
-  mem, fd count) into the dashboard alongside the budget ledger
+  siblings (extension of Phase 2a limits, which are global). _Trigger:_
+  observed in production logs that one group's container is consuming
+  disproportionate CPU/memory and impacting siblings.
+- **Per-container observability** — container-level metrics (CPU, mem,
+  fd count) into the dashboard alongside the budget ledger. _Trigger:_
+  Phase 2c "container active" log lines start showing wedges that
+  would be diagnosable with cgroup-level stats.
 - **Streaming responses end-to-end** — currently SSE inside the engine
-  but agent → user is buffered
-- **Image / voice pipeline improvements** — only when a CRM feature
-  requires it
+  but agent → user is buffered. _Trigger:_ a CRM feature requires
+  partial-response streaming AND the WhatsApp protocol layer supports
+  it (currently does not).
+- **Image / voice pipeline improvements** — _Trigger:_ a specific CRM
+  feature (e.g. attachment OCR, voice-note structured extraction)
+  requires capabilities the current pipeline doesn't expose.
 
 ---
 
 ## Sequencing recommendation
 
-1. **Phase 1 first** (DONE, this commit) — cleanup is immediate,
-   low-risk, makes Phase 2 less confusing
-2. **Phase 2 second** — pick items individually based on which
-   reliability gap bites hardest. Likely order: env-var resource
-   limits → `engine/index.ts` split → heartbeat reaper.
-3. **Phase 3 third** — pull-driven, not push-driven.
+1. **Phase 1** (DONE, commit `799b6b9`) — cleanup; removed 86
+   vestigial upstream artifacts; re-anchored docs as fork owner.
+2. **Phase 2** (DONE, commits `24dcec6` + `3ee0c7e` + `38dbf53`) —
+   reliability tightening. 2a = env-var resource limits + `--pids-limit`.
+   2b = bootstrap sequence extracted to `engine/src/bootstrap.ts`.
+   2c = container active visibility (periodic log + localhost-only
+   dashboard endpoint). Item 4 (trim `engine/ipc.ts`) closed N/A.
+3. **Phase 3** — closed with no items pulled. Pull-driven, not
+   push-driven; re-open only on a specific trigger.
 
 ## How to monitor upstream from now on
 
