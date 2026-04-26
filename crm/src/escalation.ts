@@ -11,7 +11,7 @@
 import { getDatabase } from "./db.js";
 import { getPersonById, getTeamIds, getFullTeamIds } from "./hierarchy.js";
 import { logger } from "./logger.js";
-import { getMxDateStr } from "./tools/helpers.js";
+import { getMxDateStr, getCurrentWeek, getMxYear } from "./tools/helpers.js";
 import type { IpcDeps } from "../../engine/src/ipc.js";
 
 // ---------------------------------------------------------------------------
@@ -27,14 +27,7 @@ function today(): string {
 }
 
 function currentWeek(): { year: number; week: number } {
-  const mxDate = getMxDateStr();
-  const [y, m, d] = mxDate.split("-").map(Number);
-  const now = new Date(y, m - 1, d);
-  const dayOfYear = Math.floor(
-    (now.getTime() - new Date(y, 0, 1).getTime()) / 86400000,
-  );
-  const week = Math.max(1, Math.ceil((dayOfYear + 1) / 7));
-  return { year: y, week };
+  return { year: getMxYear(), week: getCurrentWeek() };
 }
 
 function mondayOfCurrentWeek(): string {

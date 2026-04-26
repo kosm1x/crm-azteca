@@ -39,24 +39,19 @@ const {
 } = await import("../src/escalation.js");
 
 const { _resetStatementCache } = await import("../src/hierarchy.js");
+const { getCurrentWeek, getMxYear, getMxDateStr } =
+  await import("../src/tools/helpers.js");
 
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
-const MX_TZ = "America/Mexico_City";
 function mxDateStr(d?: Date): string {
-  return (d ?? new Date()).toLocaleDateString("sv-SE", { timeZone: MX_TZ });
+  return getMxDateStr(d);
 }
 
 function currentWeek(): { year: number; week: number } {
-  const [y, m, d] = mxDateStr().split("-").map(Number);
-  const now = new Date(y, m - 1, d);
-  const dayOfYear = Math.floor(
-    (now.getTime() - new Date(y, 0, 1).getTime()) / 86400000,
-  );
-  const week = Math.max(1, Math.ceil((dayOfYear + 1) / 7));
-  return { year: y, week };
+  return { year: getMxYear(), week: getCurrentWeek() };
 }
 
 function mondayOfCurrentWeek(): string {

@@ -81,11 +81,13 @@ export function personaIdFromName(nombre: string): string | null {
 export function getCurrentWeek(): number {
   const mxDate = getMxDateStr();
   const [y, m, d] = mxDate.split("-").map(Number);
-  const now = new Date(y, m - 1, d);
-  const start = new Date(y, 0, 1);
-  return Math.ceil(
-    ((now.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7,
-  );
+  // UTC math so the process timezone doesn't slide the result. The MX
+  // date string fixes the year/month/day; .getUTCDay() reads it back without
+  // a local-tz round-trip.
+  const now = Date.UTC(y, m - 1, d);
+  const start = Date.UTC(y, 0, 1);
+  const startDay = new Date(start).getUTCDay();
+  return Math.ceil(((now - start) / 86400000 + startDay + 1) / 7);
 }
 
 export function getPersonaEmail(personaId: string): string | null {
@@ -125,11 +127,16 @@ export function getMxDateTimeStr(date?: Date): string {
 }
 
 /**
- * Compute a date cutoff string for use as a SQL parameter.
- * Replaces template-interpolated `datetime('now', '-N days')` patterns.
+ * Compute a date cutoff string for use as a SQL parameter against
+ * `datetime('now', ...)`-stored columns. Returns YYYY-MM-DD in MX time so
+ * lexical text comparison with `YYYY-MM-DD HH:MM:SS` columns works under
+ * `>=` ("rows from N MX-days ago onward"). The previous UTC ISO format
+ * (`...T...Z`) sorted after the SQLite space-separated format and silently
+ * dropped same-day rows.
  */
 export function dateCutoff(daysAgo: number): string {
-  return new Date(Date.now() - daysAgo * 86400000).toISOString();
+  const cutoff = new Date(Date.now() - daysAgo * 86400000);
+  return getMxDateStr(cutoff);
 }
 
 /**

@@ -38,6 +38,7 @@ vi.stubGlobal("fetch", mockFetch);
 
 const { generar_briefing } = await import("../src/tools/briefing.js");
 const { _resetStatementCache } = await import("../src/hierarchy.js");
+const { getCurrentWeek, getMxYear } = await import("../src/tools/helpers.js");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -186,7 +187,7 @@ describe("AE briefing", () => {
 
   it("computes path-to-close with quota and closeable deals", async () => {
     const semana = getCurrentWeek();
-    const año = new Date().getFullYear();
+    const año = getMxYear();
 
     testDb
       .prepare(
@@ -398,7 +399,7 @@ describe("Gerente briefing", () => {
 
   it("computes path-to-close per AE", async () => {
     const semana = getCurrentWeek();
-    const año = new Date().getFullYear();
+    const año = getMxYear();
 
     testDb
       .prepare(
@@ -658,11 +659,3 @@ describe("VP briefing", () => {
 // ---------------------------------------------------------------------------
 // Helper import (after mocks)
 // ---------------------------------------------------------------------------
-
-function getCurrentWeek(): number {
-  const d = new Date();
-  const start = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(
-    ((d.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7,
-  );
-}

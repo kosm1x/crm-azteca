@@ -8,7 +8,7 @@
 import { getDatabase } from "../db.js";
 import { classifyAndUpdate } from "../sentiment.js";
 import type { ToolContext } from "./index.js";
-import { getMxYear } from "./helpers.js";
+import { getMxYear, getCurrentWeek } from "./helpers.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,18 +57,6 @@ function findPropuesta(
       "SELECT id, titulo, ae_id, etapa FROM propuesta WHERE titulo LIKE ?",
     )
     .get(`%${titulo}%`) as any;
-}
-
-function getCurrentWeek(): number {
-  const mxDate = new Date().toLocaleDateString("sv-SE", {
-    timeZone: "America/Mexico_City",
-  });
-  const [y, m, d] = mxDate.split("-").map(Number);
-  const now = new Date(y, m - 1, d);
-  const start = new Date(y, 0, 1);
-  return Math.ceil(
-    ((now.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7,
-  );
 }
 
 // ---------------------------------------------------------------------------

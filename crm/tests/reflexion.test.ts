@@ -31,6 +31,7 @@ vi.mock("../src/logger.js", () => ({
 
 const { consultar_resumen_dia } = await import("../src/tools/reflexion.js");
 const { _resetStatementCache } = await import("../src/hierarchy.js");
+const { getCurrentWeek, getMxYear } = await import("../src/tools/helpers.js");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -262,17 +263,14 @@ describe("consultar_resumen_dia", () => {
   });
 
   it("includes quota snapshot for current week", () => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 1);
-    const week = Math.ceil(
-      ((now.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7,
-    );
+    const week = getCurrentWeek();
+    const año = getMxYear();
 
     testDb
       .prepare(
         "INSERT INTO cuota (id, persona_id, rol, año, semana, meta_total, logro) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
-      .run("q1", "ae1", "ae", now.getFullYear(), week, 500000, 350000);
+      .run("q1", "ae1", "ae", año, week, 500000, 350000);
 
     const result = JSON.parse(consultar_resumen_dia({}, aeCtx()));
     expect(result.cuota_semana).not.toBeNull();

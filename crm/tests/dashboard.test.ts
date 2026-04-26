@@ -59,6 +59,7 @@ const {
   getAlertas,
   getVpGlance,
 } = await import("../src/dashboard/api.js");
+const { getCurrentWeek, getMxYear } = await import("../src/tools/helpers.js");
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -126,7 +127,7 @@ function seedPipeline() {
 
 function seedCuotas() {
   const week = getCurrentWeek();
-  const year = new Date().getFullYear();
+  const year = getMxYear();
   testDb
     .prepare(
       `INSERT INTO cuota (persona_id, año, semana, meta_total, logro, rol)
@@ -160,7 +161,7 @@ function seedActividades() {
 
 function seedDescargas() {
   const week = getCurrentWeek();
-  const year = new Date().getFullYear();
+  const year = getMxYear();
   testDb
     .prepare(
       `INSERT INTO cuenta (id, nombre, tipo, vertical, ae_id) VALUES ('c1', 'Acme Corp', 'directo', 'Consumo', 'ae-001')`,
@@ -192,14 +193,6 @@ function seedAlertas() {
     VALUES ('estancamiento', 'p1', 'ae-001-folder', datetime('now', '-10 days'))`,
     )
     .run();
-}
-
-function getCurrentWeek(): number {
-  const d = new Date();
-  const start = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(
-    ((d.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7,
-  );
 }
 
 function makeCtx(rol: "ae" | "gerente" | "director" | "vp", personaId: string) {
@@ -339,7 +332,7 @@ describe("GET /api/v1/cuota", () => {
     const ctx = makeCtx("vp", "vp-001");
     const result = getCuota({}, ctx) as any;
     expect(result.semana).toBe(getCurrentWeek());
-    expect(result.año).toBe(new Date().getFullYear());
+    expect(result.año).toBe(getMxYear());
   });
 });
 
@@ -498,9 +491,10 @@ function seedSentiment() {
       `INSERT INTO actividad (id, ae_id, cuenta_id, tipo, resumen, sentimiento, fecha) VALUES ('s-urg-0', 'ae-002', 'c2', 'llamada', 'test', 'urgente', ?)`,
     )
     .run(now.toISOString());
-  // Previous week: 5 positivo for ae-001 (no negatives)
+  // Previous week: 5 positivo for ae-001 (no negatives). Start 9 days back
+  // so the oldest current-week boundary (~7 MX days) doesn't catch them.
   for (let i = 0; i < 5; i++) {
-    const d = new Date(now.getTime() - (8 + i) * 86400000).toISOString();
+    const d = new Date(now.getTime() - (9 + i) * 86400000).toISOString();
     testDb
       .prepare(
         `INSERT INTO actividad (id, ae_id, cuenta_id, tipo, resumen, sentimiento, fecha) VALUES (?, 'ae-001', 'c1', 'llamada', 'test', 'positivo', ?)`,

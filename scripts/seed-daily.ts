@@ -17,6 +17,7 @@
  */
 
 import { getDatabase } from "../crm/src/db.js";
+import { getCurrentWeek, getMxYear } from "../crm/src/tools/helpers.js";
 
 const db = getDatabase();
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -369,16 +370,8 @@ for (const ae of aeRows) {
 // Seed cuota for current week (if missing)
 // ---------------------------------------------------------------------------
 
-function getCurrentWeek(): number {
-  const d = new Date();
-  const start = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(
-    ((d.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7,
-  );
-}
-
 const CW = getCurrentWeek();
-const YEAR = today.getFullYear();
+const YEAR = getMxYear();
 
 // AE IDs and their performance profiles (same as seed-analytics.ts)
 const aeIds = aeRows
