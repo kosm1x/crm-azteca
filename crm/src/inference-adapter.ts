@@ -577,8 +577,14 @@ export async function inferWithTools(
     process.env.INFERENCE_TOTAL_TIMEOUT_MS ?? "120000",
     10,
   );
+  // Per-round prompt-size cap. NOT a cost cap — this is "how big can a single
+  // round's input get before we abort the loop." Must be >= the compression
+  // threshold (0.8 × contextLimit = 80k by default), otherwise the budget
+  // trips before the compressor gets a chance to free space, and fresh
+  // sessions with a large persona + 71 tool defs (~26k baseline) fail their
+  // very first call. Was 25000 — too tight for Qwen3.6-plus-class contexts.
   const tokenBudget = parseInt(
-    process.env.INFERENCE_TOKEN_BUDGET ?? "25000",
+    process.env.INFERENCE_TOKEN_BUDGET ?? "80000",
     10,
   );
   // Default sized for GLM-5 / Qwen3.6-plus (~128k tokens) with headroom for
@@ -590,6 +596,10 @@ export async function inferWithTools(
   );
   const TOOL_CHAIN_WARNING = 8;
   const MIN_REMAINING_MS = 15_000;
+
+  // Track why the loop terminated so the fallback message is honest.
+  // "max_rounds" is only true when we genuinely walked all maxRounds turns.
+  let exitReason: "max_rounds" | "token_budget" | "timeout" = "max_rounds";
 
   // Per-call cost recording happens inside infer() now — every round writes
   // its own ledger row with the actual provider that served it. buildResult
@@ -833,7 +843,7 @@ export async function inferWithTools(
       }
     }
 
-    // Token budget check
+    // Token budget check (per-round prompt size, not cumulative spend)
     if (response.usage.prompt_tokens >= tokenBudget) {
       logger.warn(
         {
@@ -844,17 +854,24 @@ export async function inferWithTools(
         },
         "token budget exceeded, forcing early exit",
       );
+      exitReason = "token_budget";
       break;
     }
   }
 
-  // Safety: hit max rounds or token budget — return last content or empty
+  // Loop exited without a final text response. Use the last assistant text
+  // if any, otherwise a Spanish-facing message that names the actual reason
+  // — was misleadingly always "max tool rounds reached" before.
   const lastAssistant = [...conversation]
     .reverse()
     .find((m) => m.role === "assistant");
+  const reasonMessage =
+    exitReason === "token_budget"
+      ? "[Conversacion demasiado larga. Inicia una nueva sesion para continuar.]"
+      : "[Limite de pasos alcanzado. Reformula la pregunta o pide un alcance mas acotado.]";
   const fallbackContent =
-    (typeof lastAssistant?.content === "string"
+    (typeof lastAssistant?.content === "string" && lastAssistant.content
       ? lastAssistant.content
-      : null) ?? "[max tool rounds reached]";
+      : null) ?? reasonMessage;
   return buildResult(fallbackContent);
 }
