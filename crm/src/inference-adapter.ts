@@ -438,7 +438,7 @@ export async function infer(
     }
 
     // Skip non-vision providers when request contains images.
-    // Vision-capable: qwen3.5-plus, qwen-vl-*, gpt-4o*, claude-*
+    // Vision-capable: qwen3.6-plus, qwen3.5-plus, qwen-vl-*, gpt-4o*, claude-*
     // Non-vision: glm-5, glm-4-*, minimax-*
     if (hasImages) {
       const model = provider.model.toLowerCase();

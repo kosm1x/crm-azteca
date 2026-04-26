@@ -39,7 +39,8 @@ function ensureSchema(): void {
 // ---------------------------------------------------------------------------
 
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "qwen3.5-plus": { input: 0.8, output: 2.0 },
+  "qwen3.6-plus": { input: 0.8, output: 2.0 },
+  "qwen3.5-plus": { input: 0.8, output: 2.0 }, // legacy — pre-2026-04-21 ledger entries
   "qwen3-235b-a22b": { input: 0.8, output: 2.0 },
   "glm-5": { input: 0.5, output: 1.5 },
   "kimi-k2.5": { input: 1.0, output: 3.0 },

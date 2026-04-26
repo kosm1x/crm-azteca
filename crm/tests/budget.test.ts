@@ -25,9 +25,9 @@ beforeEach(() => {
 
 describe("budget", () => {
   describe("calculateCost", () => {
-    it("calculates cost for qwen3.5-plus", () => {
+    it("calculates cost for qwen3.6-plus", () => {
       // 1M input tokens at $0.8 + 500K output tokens at $2.0
-      const cost = calculateCost("qwen3.5-plus", 1_000_000, 500_000);
+      const cost = calculateCost("qwen3.6-plus", 1_000_000, 500_000);
       expect(cost).toBeCloseTo(0.8 + 1.0, 4);
     });
 
@@ -38,20 +38,20 @@ describe("budget", () => {
     });
 
     it("returns 0 for zero tokens", () => {
-      expect(calculateCost("qwen3.5-plus", 0, 0)).toBe(0);
+      expect(calculateCost("qwen3.6-plus", 0, 0)).toBe(0);
     });
   });
 
   describe("recordCost + getDailySpend", () => {
     it("records and retrieves costs", () => {
       recordCost({
-        model: "qwen3.5-plus",
+        model: "qwen3.6-plus",
         promptTokens: 1000,
         completionTokens: 500,
         provider: "primary",
       });
       recordCost({
-        model: "qwen3.5-plus",
+        model: "qwen3.6-plus",
         promptTokens: 2000,
         completionTokens: 1000,
         provider: "primary",
@@ -88,7 +88,7 @@ describe("budget", () => {
   describe("getThreeWindowStatus", () => {
     it("returns status for all three windows", () => {
       recordCost({
-        model: "qwen3.5-plus",
+        model: "qwen3.6-plus",
         promptTokens: 1000,
         completionTokens: 500,
       });
@@ -103,7 +103,7 @@ describe("budget", () => {
 
     it("shows not exceeded for small spend", () => {
       recordCost({
-        model: "qwen3.5-plus",
+        model: "qwen3.6-plus",
         promptTokens: 100,
         completionTokens: 50,
       });
