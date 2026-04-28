@@ -162,7 +162,7 @@ describe("buscar_memoria", () => {
     expect(result.resultados).toHaveLength(0);
   });
 
-  it("AE cannot search non-ventas banks", async () => {
+  it("AE cannot search the team bank (manager+ only)", async () => {
     const result = JSON.parse(
       await buscar_memoria(
         { consulta: "test", banco: "equipo" },
@@ -170,7 +170,22 @@ describe("buscar_memoria", () => {
       ),
     );
     expect(result.error).toBeDefined();
-    expect(result.error).toContain("ventas");
+    expect(result.error).toContain("equipo");
+  });
+
+  it("AE can search crm-accounts (they write to it via auto-memory)", async () => {
+    await guardar_observacion(
+      { contenido: "P&G renueva en Q4", banco: "cuentas" },
+      makeCtx("ae"),
+    );
+    const result = JSON.parse(
+      await buscar_memoria(
+        { consulta: "P&G", banco: "cuentas" },
+        makeCtx("ae"),
+      ),
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.resultados).toHaveLength(1);
   });
 
   it("gerente can search any bank", async () => {

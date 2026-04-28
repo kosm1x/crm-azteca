@@ -32,6 +32,7 @@ import {
   getUserProfile,
   formatProfileSection,
 } from "../../src/tools/perfil.js";
+import { getSessionMemorySection } from "../../src/memory/recall-hook.js";
 import { inferWithTools } from "../../src/inference-adapter.js";
 import { filterToolsByIntent } from "../../src/tools/intent-filter.js";
 import type {
@@ -356,7 +357,10 @@ function refreshSystemDate(messages: ChatMessage[]): void {
   }
 }
 
-function buildSystemPrompt(groupFolder: string, persona: Persona): string {
+async function buildSystemPrompt(
+  groupFolder: string,
+  persona: Persona,
+): Promise<string> {
   const parts: string[] = [];
 
   // Global CLAUDE.md
@@ -392,6 +396,18 @@ function buildSystemPrompt(groupFolder: string, persona: Persona): string {
     }
   } catch {
     // Profile not available — non-fatal, skip silently
+  }
+
+  // Session-memory recall — pull a role-appropriate digest from hindsight.
+  // Returns "" on empty banks or backend errors (logged inside).
+  try {
+    const memorySection = await getSessionMemorySection(
+      persona.id,
+      persona.rol,
+    );
+    if (memorySection) parts.push(memorySection);
+  } catch {
+    // Defensive — getSessionMemorySection already swallows; this is belt-and-suspenders
   }
 
   return parts.join("\n\n---\n\n");
@@ -525,7 +541,10 @@ async function main(): Promise<void> {
   const tools = getToolsForRole(persona.rol);
 
   // Build system prompt
-  const systemPrompt = buildSystemPrompt(containerInput.groupFolder, persona);
+  const systemPrompt = await buildSystemPrompt(
+    containerInput.groupFolder,
+    persona,
+  );
 
   // Tool executor: wraps executeTool with ToolContext + per-tool timeout.
   //
