@@ -155,9 +155,18 @@ export class HindsightMemoryBackend implements MemoryService {
     try {
       await this.client.upsertBank(bankId, config);
       this.initializedBanks.add(bankId);
-    } catch {
-      // Non-fatal — bank may already exist
-      this.initializedBanks.add(bankId); // Don't retry
+    } catch (err) {
+      // Non-fatal — retain/recall use server defaults if config push fails.
+      // Log so genuine errors (auth, schema drift) surface instead of being silent.
+      logger.warn(
+        {
+          bank: bankId,
+          op: "upsertBank",
+          err: err instanceof Error ? err.message : String(err),
+        },
+        "hindsight upsertBank failed; bank will use server defaults",
+      );
+      this.initializedBanks.add(bankId); // Don't retry this process
     }
   }
 }
@@ -168,14 +177,19 @@ export class HindsightMemoryBackend implements MemoryService {
 
 const BANK_CONFIGS: Record<
   MemoryBank,
-  { mission: string; disposition: string }
+  {
+    mission: string;
+    disposition: { skepticism: number; literalism: number; empathy: number };
+    observationsMission: string;
+  }
 > = {
   "crm-sales": {
     mission:
       "Almacenar y recuperar patrones de ejecucion de ventas: tecnicas de manejo de objeciones, " +
       "estrategias de cierre, preferencias de clientes, lecciones de propuestas ganadas y perdidas, " +
       "y patrones de negociacion efectiva en venta de medios publicitarios.",
-    disposition:
+    disposition: { skepticism: 4, literalism: 4, empathy: 2 },
+    observationsMission:
       "Priorizar aprendizajes accionables y especificos sobre observaciones genericas. " +
       "Consolidar patrones de ventas similares. Descartar observaciones obsoletas cuando " +
       "las condiciones de mercado o inventario cambian.",
@@ -185,7 +199,8 @@ const BANK_CONFIGS: Record<
       "Recordar inteligencia de cuentas: historial de relaciones con clientes y agencias, " +
       "preferencias de stakeholders, dinamicas politicas internas de las cuentas, " +
       "y contexto de la vertical (CPG, automotriz, telecomunicaciones, etc.).",
-    disposition:
+    disposition: { skepticism: 3, literalism: 4, empathy: 3 },
+    observationsMission:
       "Priorizar preferencias de stakeholders y contexto de relacion. " +
       "Auto-refrescar cuando se consolidan observaciones. Mantener el contexto " +
       "de la cuenta relevante y oportuno — decaer temas viejos.",
@@ -195,7 +210,8 @@ const BANK_CONFIGS: Record<
       "Rastrear patrones de rendimiento del equipo de ventas: observaciones de coaching, " +
       "fortalezas y areas de mejora por ejecutivo, patrones de actividad que predicen exito, " +
       "y lecciones de gestion para gerentes, directores y VP.",
-    disposition:
+    disposition: { skepticism: 3, literalism: 3, empathy: 4 },
+    observationsMission:
       "Enfocarse en patrones y anomalias de rendimiento. Consolidar metricas rutinarias. " +
       "Retener observaciones de coaching y sus resultados a largo plazo.",
   },
@@ -205,7 +221,8 @@ const BANK_CONFIGS: Record<
       "comportamiento del usuario (el vendedor que habla con el agente). Incluye: " +
       "como prefiere recibir informacion, horarios, familia, hobbies, fechas importantes, " +
       "y correcciones de estilo que ha hecho al agente.",
-    disposition:
+    disposition: { skepticism: 2, literalism: 3, empathy: 4 },
+    observationsMission:
       "Priorizar preferencias de comunicacion y correcciones de estilo — estas afectan " +
       "cada interaccion. Consolidar datos personales redundantes. Mantener actualizado " +
       "cuando el usuario corrija informacion previa.",

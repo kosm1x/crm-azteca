@@ -233,6 +233,25 @@ describe("HindsightMemoryBackend", () => {
     expect(retainReq!.body).toMatchObject({
       items: [{ content: "Test observation" }],
     });
+
+    // upsertBank body must match Hindsight's modern CreateBankRequest schema:
+    // disposition as {skepticism,literalism,empathy} integers (1-5), and
+    // missions in retain_mission/reflect_mission/observations_mission, NOT the
+    // deprecated `mission`/`disposition` string fields.
+    const upsertReq = requests.find(
+      (r) => r.url.includes("/banks/crm-sales") && !r.url.includes("/memories"),
+    );
+    expect(upsertReq).toBeDefined();
+    expect(upsertReq!.body).toMatchObject({
+      retain_mission: expect.any(String),
+      reflect_mission: expect.any(String),
+      observations_mission: expect.any(String),
+      disposition: {
+        skepticism: expect.any(Number),
+        literalism: expect.any(Number),
+        empathy: expect.any(Number),
+      },
+    });
   });
 
   it("returns empty array when circuit is open", async () => {

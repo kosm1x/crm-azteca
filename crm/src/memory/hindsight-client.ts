@@ -51,7 +51,8 @@ export interface HindsightReflectResponse {
 
 export interface HindsightBankConfig {
   mission?: string;
-  disposition?: string;
+  disposition?: { skepticism: number; literalism: number; empathy: number };
+  observationsMission?: string;
 }
 
 export interface HindsightHealthResponse {
@@ -142,7 +143,18 @@ export class HindsightClient {
 
   /** Create or update a memory bank. */
   async upsertBank(bankId: string, config: HindsightBankConfig): Promise<void> {
-    await this.request("PUT", `/v1/default/banks/${bankId}`, config);
+    // Hindsight ≥ v0.4 deprecated `mission` (use retain_mission/reflect_mission)
+    // and requires `disposition` as a {skepticism,literalism,empathy} object.
+    const body: Record<string, unknown> = {};
+    if (config.mission) {
+      body.retain_mission = config.mission;
+      body.reflect_mission = config.mission;
+    }
+    if (config.disposition) body.disposition = config.disposition;
+    if (config.observationsMission) {
+      body.observations_mission = config.observationsMission;
+    }
+    await this.request("PUT", `/v1/default/banks/${bankId}`, body);
   }
 
   /** Health check. */
